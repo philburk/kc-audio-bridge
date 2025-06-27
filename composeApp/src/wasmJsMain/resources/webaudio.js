@@ -5,48 +5,49 @@ let audioContext;
 let outputWorkletNode;
 
 // Queue parameters
-const capacity = 2048; // TODO Must be power of two.
-const capacityMask = capacity - 1;
+const capacityInFrames = 1024; // TODO Must be power of two.
+const capacityInSamples = capacityInFrames * 2; // STEREO
+const capacityFrameMask = capacityInFrames - 1;
+const capacitySampleMask = capacityInSamples - 1;
 
 // Use one SharedArrayBuffer for the float data
 // and a second SharedArrayBuffer for the writeCursor, readCursor and capacity
-const floatBufferSizeBytes = Float32Array.BYTES_PER_ELEMENT * capacity;
+const floatBufferSizeBytes = Float32Array.BYTES_PER_ELEMENT * capacityInSamples;
 const floatSharedBuffer = new SharedArrayBuffer(floatBufferSizeBytes);
 const sharedFloatArray = new Float32Array(floatSharedBuffer);
-
-// Fill the sharedFloatArray with 16 cycles of a sine wave
-const numCycles = 16;
-const samplesPerCycle = capacity / numCycles;
-for (let i = 0; i < capacity; i++) {
-  sharedFloatArray[i] = Math.sin(2 * Math.PI * (i / samplesPerCycle));
-}
 
 const intBufferSizeBytes = Int32Array.BYTES_PER_ELEMENT * 3; // 3 for writeCursor, readCursor and capacity
 const intSharedBuffer = new SharedArrayBuffer(intBufferSizeBytes);
 const sharedIntArray = new Int32Array(intSharedBuffer);
 
 // Initialize the queue structure
-sharedIntArray[0] = 0; // writeCursor
-sharedIntArray[1] = 0; // readCursor
-sharedIntArray[2] = capacity; // capacity
+sharedIntArray[0] = 0; // framesWritten
+sharedIntArray[1] = 0; // framesRead
+sharedIntArray[2] = capacityInFrames;
 
-// Function to enqueue a float value
-function writeAudioSample(value) {
-  console.log("writeAudioSample(" + value + ")");
-  const writeCursor = Atomics.load(sharedIntArray, 0);
-  console.log("writeCursor = " + writeCursor);
-  const readCursor = Atomics.load(sharedIntArray, 1);
-  const capacityValue = Atomics.load(sharedIntArray, 2);
-  console.log("writeAudioSample: readCursor=" + readCursor + ", writeCursor=" + writeCursor + ", capacity=" + capacityValue);
+let framesPerBurst = 0;
 
-  if (readCursor >= writeCursor) { // Check if queue is not full
-    const writeIndex = writeCursor & capacityMask;
-    sharedFloatArray[writeIndex] = value;
-    Atomics.store(sharedIntArray, 0, writeCursor + 1); // Atomically update writeCursor
-    return true; // Enqueue successful
-  } else {
-    return false; // Queue is full
-  }
+function getOutputFramesWritten() {
+    return sharedIntArray[0];
+}
+
+function getOutputFramesRead() {
+    return sharedIntArray[1];
+}
+
+function getOutputFramesPerBurst() {
+    return 128; // fixed quantum size in WebAudio
+}
+
+function setOutputFramesWritten(value) {
+    sharedIntArray[0] = value;
+}
+
+// Function to write a pair of float values to the shared buffer
+function setAudioPair(framesWritten, left, right) {
+    const writeIndex = (framesWritten * 2) & capacitySampleMask;
+    sharedFloatArray[writeIndex] = left;
+    sharedFloatArray[writeIndex + 1] = right;
 }
 
 async function startWebAudio() {
@@ -69,10 +70,13 @@ async function startWebAudio() {
             audioContext = new AudioContext();
             await audioContext.audioWorklet.addModule('output_stream.js');
             outputWorkletNode = new AudioWorkletNode(audioContext, 'output-stream', {
-                processorOptions: {
-                    floatSharedBuffer: floatSharedBuffer,
-                    intSharedBuffer: intSharedBuffer
-                }
+                    numberOfInputs: 1, // Or 0 if it's a source node
+                    numberOfOutputs: 1,
+                    outputChannelCount: [2], // Explicitly request STEREO
+                    processorOptions: {
+                        floatSharedBuffer: floatSharedBuffer,
+                        intSharedBuffer: intSharedBuffer
+                    }
             });
             outputWorkletNode.connect(audioContext.destination);
         } else {
@@ -87,28 +91,16 @@ async function startWebAudio() {
     }
 }
 
-function testCallingKotlin() {
-    alert("This is a JavaScript function. Not Kotlin!");
-    //alert(exports.getFunnyText());
-}
-
 function showJavaScriptAlert() {
     alert("This is from a JavaScript function.");
 }
 
-function setNoiseLevel(level)  {
-    // Access the 'amplitude' AudioParam
-    const amplitudeParam = noiseWorkletNode.parameters.get('amplitude');
-    if (amplitudeParam) {
-        amplitudeParam.value = level;
-        console.log("Noise level set to " + level);
-    }
-}
-
 window.startWebAudio = startWebAudio;
-window.testCallingKotlin = testCallingKotlin;
 window.showJavaScriptAlert = showJavaScriptAlert;
-window.setNoiseLevel = setNoiseLevel;
-window.writeAudioSample = writeAudioSample;
+window.setAudioPair = setAudioPair;
+window.getOutputFramesWritten = getOutputFramesWritten;
+window.getOutputFramesRead = getOutputFramesRead;
+window.getOutputFramesPerBurst = getOutputFramesPerBurst;
+window.setOutputFramesWritten = setOutputFramesWritten;
 
-export { startWebAudio, testCallingKotlin, writeAudioSample };
+//export { startWebAudio, writeAudioSample };
