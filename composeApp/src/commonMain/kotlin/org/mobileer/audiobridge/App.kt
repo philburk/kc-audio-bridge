@@ -1,44 +1,89 @@
 package org.mobileer.audiobridge
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.random.Random
+import kotlinx.io.* // Import from kotlinx-io
+//import kotlinx.io.core.* // Import from kotlinx-io
+import kotlinx.coroutines.delay
+import kotlin.js.JsExport
+import kotlin.js.JsName
+import kotlin.time.Duration.Companion.milliseconds
 
-import kcaudiobridge.composeapp.generated.resources.Res
-import kcaudiobridge.composeapp.generated.resources.compose_multiplatform
+external fun playStereoFrame(left: Float, right: Float)
+external fun showJavaScriptAlert()
+external fun setNoiseLevel(level: Float)
+
+// Configuration
+const val SAMPLE_RATE = 44100
+const val BUFFER_SIZE = 2048 // Adjust buffer size as needed
+
+fun generateSineWaveBuffer(frequency: Double, amplitude: Float = 1.0f): FloatArray {
+    val data = FloatArray(BUFFER_SIZE)
+    for (i in 0 until BUFFER_SIZE) {
+        val time = i.toDouble() / SAMPLE_RATE
+        val value = amplitude * sin(2 * PI * frequency * time).toFloat()
+        data[i] = value
+    }
+    return data
+}
+
+fun startAudioStream(frequency: Double) {
+    GlobalScope.launch(Dispatchers.Default) {
+        while (true) {
+            val floatBuffer = generateSineWaveBuffer(frequency)
+            for (left: Float in floatBuffer) {
+                playStereoFrame(left, 0.0f)
+            }
+            delay((1000 * BUFFER_SIZE / SAMPLE_RATE).milliseconds)
+        }
+    }
+}
+
+expect class AudioBridge(context: Any? = null) {
+    fun write(buffer: FloatArray, numFrames: Int)
+}
+
+@JsExport
+@JsName("getFunnyText")
+fun getFunnyText() = "Hello Mars"
+
+val audioBridge = AudioBridge()
 
 @Composable
-@Preview
 fun App() {
-    MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        Column(
-            modifier = Modifier
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
+    val frequency = 440.0 // Example frequency
+
+    Column() {
+        Button(onClick = {
+            val buffer = FloatArray(60)
+            val random = Random.Default
+            for (i in buffer.indices) {
+                buffer[i] = random.nextFloat() * 2.0f - 1.0f // Random values between -1.0 and +1.0
             }
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
-                }
-            }
+            audioBridge.write(buffer, 60)
+            }) {
+            Text("Write noise")
         }
+        Button(onClick = { showJavaScriptAlert() }) {
+            Text("Show JavaScript Alert")
+        }
+        Button(onClick = { startAudioStream(frequency) }) {
+            Text("Play Continuous Tone")
+        }
+        Button(onClick = {
+            val random = Random.Default
+            val randomLevel = random.nextFloat()
+            setNoiseLevel(randomLevel)
+        }) {
+            Text("Set random level")
+        }
+        Text(getFunnyText())
     }
 }

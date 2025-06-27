@@ -69,6 +69,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -76,6 +77,7 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
         }
     }
 }
@@ -109,7 +111,15 @@ android {
 
 dependencies {
     debugImplementation(compose.uiTooling)
+    implementation("io.github.oshai:kotlin-logging:5.1.0")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.0")
+    api("org.jetbrains.compose.runtime:runtime:1.7.0")
+    api("org.jetbrains.compose.foundation:foundation:1.7.0")
+    api("org.jetbrains.compose.ui:ui:1.7.0")
+    api("org.jetbrains.compose.components:components-resources:1.7.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
 }
+
 
 compose.desktop {
     application {
