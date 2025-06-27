@@ -1,8 +1,44 @@
+# Gradle
+.gradle/
+**/build/
+local.properties
+*.iml
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.ipr
+*.iws
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Android Specific
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# iOS Specific (if applicable)
+# For CocoaPods, consider whether to include Pods/ based on team preference
+# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
+**/iosApp/Pods/
+**/iosApp/Carthage/Build/
+
+# fastlane (if used for CI/CD)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+
 # Compiled class file
 *.class
-
-# Log file
-*.log
 
 # BlueJ files
 *.ctxt
@@ -25,3 +61,5 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+
+
