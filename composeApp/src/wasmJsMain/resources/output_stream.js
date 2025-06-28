@@ -13,35 +13,26 @@ class CustomOutputStream extends AudioWorkletProcessor {
   constructor(options) {
     // The super constructor call is required.
     super(options);
-    console.log(`options.numberOfInputs: ${options.numberOfInputs}`);
-    console.log(`options.numberOfOutputs: ${options.numberOfOutputs}`);
-    console.log(`options.outputChannelCount: ${options.outputChannelCount}`);
     this.sharedFloatArray = new Float32Array(options.processorOptions.floatSharedBuffer);
     this.sharedIntArray = new Int32Array(options.processorOptions.intSharedBuffer);
     this.capacityInFrames = Atomics.load(this.sharedIntArray, INDEX_CAPACITY);
     this.capacityInSamples = this.capacityInFrames * STEREO;
     this.sampleMask = this.capacityInSamples - 1;
-    this.callbackCounter = 0;
   }
 
   process(inputs, outputs, parameters) {
+    const framesWritten = Atomics.load(this.sharedIntArray, INDEX_FRAMES_WRITTEN);
     const framesRead = Atomics.load(this.sharedIntArray, INDEX_FRAMES_READ);
     const output = outputs[0];
     const channelCount = output.length;
     const framesPerBurst = output[0].length;
-    if (this.callbackCounter  === 0) {
-        console.log(`framesPerBurst: ${framesPerBurst}`);
-        console.log(`channelCount: ${channelCount}`);
+    if ((framesRead + framesPerBurst) >= framesWritten) {
+       console.log(`Underflow! read = ${framesRead}, written = ${framesWritten}`)
     }
     // Data in the float array is interleaved.
     // We have to deinterleave it into the output buffers.
     for (let channel = 0; channel < channelCount; ++channel) {
       const outputChannel = output[channel];
-        if (this.callbackCounter  === 0) {
-            console.log(`channel: ${channel}`);
-            console.log(`outputs.length: ${outputs.length}`);
-            console.log(`outputChannel.length: ${outputChannel.length}`);
-        }
       let sampleOffset = (framesRead * STEREO) + channel;
       for (let i = 0; i < outputChannel.length; ++i) {
         const readIndex = sampleOffset & this.sampleMask;
@@ -51,7 +42,6 @@ class CustomOutputStream extends AudioWorkletProcessor {
       }
     }
     Atomics.store(this.sharedIntArray, INDEX_FRAMES_READ, framesRead + framesPerBurst);
-    this.callbackCounter += 1;
     return true;
   }
 }

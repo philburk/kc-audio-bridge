@@ -4,6 +4,7 @@ external fun setAudioPair(framesWritten: Int, left: Float, right: Float): Boolea
 external fun getOutputFramesWritten(): Int
 external fun getOutputFramesRead(): Int
 external fun getOutputFramesPerBurst(): Int
+external fun getOutputCapacityInFrames(): Int
 external fun setOutputFramesWritten(value: Int)
 external fun startWebAudio()
 external fun stopWebAudio()
@@ -27,18 +28,17 @@ actual class AudioBridge actual constructor(context: Any?) {
     ): Int {
         val framesWritten = getOutputFramesWritten()
         val framesRead = getOutputFramesRead()
-        var frameIndex = offset
-        var frameCount = 0
-        while ((frameCount < numFrames) // data left to write
-                &&  (framesRead > (framesWritten + frameCount))) { // is there room in the queue?
-                setAudioPair(framesWritten + frameIndex,
-                    buffer[frameIndex * 2],
-                    buffer[frameIndex * 2 + 1])
-                frameIndex += 1
-                frameCount += 1
+        val capacity = getOutputCapacityInFrames()
+        val emptyFrames = maxOf(0, capacity - (framesWritten - framesRead))
+        val framesToWrite = minOf(numFrames, emptyFrames) // data left to write
+        for (frameCount in 0 until framesToWrite) {
+            val frameIndex = offset + frameCount
+            setAudioPair(framesWritten + frameCount,
+                buffer[frameIndex * 2], // left channel
+                buffer[frameIndex * 2 + 1]) // right channel
         }
-        setOutputFramesWritten(framesWritten + frameCount)
-        return frameIndex
+        setOutputFramesWritten(framesWritten + framesToWrite)
+        return framesToWrite
     }
     actual fun stop() {}
     actual fun close() {

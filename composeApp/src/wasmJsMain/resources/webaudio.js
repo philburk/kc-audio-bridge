@@ -7,7 +7,7 @@ let outputWorkletNode;
 const STEREO = 2;
 
 // Queue parameters
-const capacityInFrames = 2048; // TODO Must be power of two.
+const capacityInFrames = 1024; // TODO Must be power of two.
 const capacityInSamples = capacityInFrames * STEREO;
 const capacityFrameMask = capacityInFrames - 1; // bit mask
 const capacitySampleMask = capacityInSamples - 1;  // bit mask
@@ -34,6 +34,10 @@ sharedIntArray[INDEX_CAPACITY] = capacityInFrames;
 
 function getOutputFramesPerBurst() {
     return 128; // fixed quantum size in WebAudio
+}
+
+function getOutputCapacityInFrames() {
+    return capacityInFrames;
 }
 
 function getOutputFramesWritten() {
@@ -129,5 +133,6 @@ window.setAudioPair = setAudioPair;
 window.getOutputFramesWritten = getOutputFramesWritten;
 window.getOutputFramesRead = getOutputFramesRead;
 window.getOutputFramesPerBurst = getOutputFramesPerBurst;
+window.getOutputCapacityInFrames = getOutputCapacityInFrames;
 window.setOutputFramesWritten = setOutputFramesWritten;
 
