@@ -5,15 +5,20 @@ external fun getOutputFramesWritten(): Int
 external fun getOutputFramesRead(): Int
 external fun getOutputFramesPerBurst(): Int
 external fun setOutputFramesWritten(value: Int)
+external fun startWebAudio()
+external fun stopWebAudio()
 
 actual class AudioBridge actual constructor(context: Any?) {
-    actual fun open(context: Any?, sampleRate: Int): Int { return 0 }
+    actual fun open(context: Any?, sampleRate: Int): Int {
+        startWebAudio()
+        return 0
+    }
     actual fun start(): Int { return 0 }
 
     actual fun getChannelCount(): Int { return 2 } // STEREO
     actual fun getFramesPerBurst(): Int { return getOutputFramesPerBurst() }
     /**
-     * Write a buffer of audio data to the output stream.
+     * Write some stereo audio data to the output stream.
      */
     actual fun write(
         buffer: FloatArray,
@@ -36,5 +41,7 @@ actual class AudioBridge actual constructor(context: Any?) {
         return frameIndex
     }
     actual fun stop() {}
-    actual fun close() {}
+    actual fun close() {
+        stopWebAudio()
+    }
 }
