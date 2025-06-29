@@ -14,10 +14,19 @@ actual class AudioBridge actual constructor(context: Any?) {
         startWebAudio()
         return 0
     }
-    actual fun start(): Int { return 0 }
 
-    actual fun getChannelCount(): Int { return 2 } // STEREO
-    actual fun getFramesPerBurst(): Int { return getOutputFramesPerBurst() }
+    actual fun start(): Int {
+        return 0
+    }
+
+    actual fun getChannelCount(): Int {
+        return 2
+    } // STEREO
+
+    actual fun getFramesPerBurst(): Int {
+        return getOutputFramesPerBurst()
+    }
+
     /**
      * Write some stereo audio data to the output stream.
      */
@@ -33,13 +42,17 @@ actual class AudioBridge actual constructor(context: Any?) {
         val framesToWrite = minOf(numFrames, emptyFrames) // data left to write
         for (frameCount in 0 until framesToWrite) {
             val frameIndex = offset + frameCount
-            setAudioPair(framesWritten + frameCount,
+            setAudioPair(
+                framesWritten + frameCount,
                 buffer[frameIndex * 2], // left channel
-                buffer[frameIndex * 2 + 1]) // right channel
+                buffer[frameIndex * 2 + 1] // right channel
+            )
         }
+        // Advance FIFO pointer.
         setOutputFramesWritten(framesWritten + framesToWrite)
         return framesToWrite
     }
+
     actual fun stop() {}
     actual fun close() {
         stopWebAudio()

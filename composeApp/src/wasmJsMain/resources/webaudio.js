@@ -1,5 +1,4 @@
-
-//import exports from "./module.mjs"
+// WebAudio interface for AudioBridge.kt
 
 let audioContext;
 let outputWorkletNode;
@@ -7,7 +6,7 @@ let outputWorkletNode;
 const STEREO = 2;
 
 // Queue parameters
-const capacityInFrames = 1024; // TODO Must be power of two.
+const capacityInFrames = 2048; // TODO Must be power of two.
 const capacityInSamples = capacityInFrames * STEREO;
 const capacityFrameMask = capacityInFrames - 1; // bit mask
 const capacitySampleMask = capacityInSamples - 1;  // bit mask

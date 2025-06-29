@@ -15,25 +15,10 @@ import kotlin.js.JsExport
 import kotlin.js.JsName
 import kotlin.time.Duration.Companion.milliseconds
 
-// Configuration
-const val SAMPLE_RATE = 44100
 const val BUFFER_SIZE_FRAMES = 256
 
-expect class AudioBridge(context: Any? = null) {
-    fun open(context: Any? = null,
-             sampleRate: Int = SAMPLE_RATE): Int
-    fun start(): Int
-    fun getChannelCount(): Int
-    fun getFramesPerBurst(): Int
-    /**
-     * Write some audio data to the output stream.
-     */
-    fun write(buffer: FloatArray,
-              offset: Int,
-              numFrames: Int): Int
-    fun stop()
-    fun close()
-}
+// Configuration
+const val SAMPLE_RATE = 44100
 
 val audioBridge = AudioBridge()
 
