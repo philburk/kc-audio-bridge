@@ -39,8 +39,26 @@ public class JavaSoundOutputStream {
 
         // For 16-bit stereo: each frame has 2 samples, each sample is 2 bytes
         mByteBuffer = new byte[BUFFER_SIZE_FRAMES * 2 * 2];
+        return 0;
+    }
+
+    public int start() {
         mSourceDataLine.start();
         return 0;
+    }
+    public void stop() {
+        if (mSourceDataLine != null) {
+            mSourceDataLine.drain(); // Wait for all data to be played
+            mSourceDataLine.stop();
+        }
+    }
+
+    public void close() {
+        if (mSourceDataLine != null) {
+            mSourceDataLine.close();
+            mSourceDataLine = null;
+        }
+        mByteBuffer = null;
     }
 
     public int getSampleRate() {
@@ -53,7 +71,7 @@ public class JavaSoundOutputStream {
     /**
      * Write some stereo audio data to the output stream.
      * @param buffer
-     * @param offset
+     * @param startFrame
      * @param numFrames
      * @return number of frames written
      */
@@ -101,13 +119,4 @@ public class JavaSoundOutputStream {
         return (bytesWritten < 0) ? bytesWritten : (bytesWritten / (2 * STEREO));
     }
 
-    public void close() {
-        if (mSourceDataLine != null) {
-            mSourceDataLine.drain(); // Wait for all data to be played
-            mSourceDataLine.stop();
-            mSourceDataLine.close();
-            mSourceDataLine = null;
-        }
-        mByteBuffer = null;
-    }
 }

@@ -5,22 +5,28 @@ actual class AudioBridge actual constructor(context: Any?) {
     private var stream = JavaSoundOutputStream()
 
     actual fun open(context: Any?, sampleRate: Int): Int {
-        val person = Person("Phil")
-        stream.open(sampleRate)
-        return 0
+        return stream.open(sampleRate)
+    }
+
+    actual fun start(): Int {
+        return stream.start();
+    }
+
+    actual fun stop() {
+        stream.stop();
+    }
+
+    actual fun close() {
+        stream.close()
     }
 
     actual fun getSampleRate(): Int {
         return stream.getSampleRate()
     }
 
-    actual fun start(): Int {
-        return 0
-    }
-
     actual fun getChannelCount(): Int {
-        return 2
-    } // STEREO
+        return 2  // STEREO
+    }
 
     actual fun getFramesPerBurst(): Int {
         return 128
@@ -37,8 +43,4 @@ actual class AudioBridge actual constructor(context: Any?) {
         return stream.write(buffer, offset, numFrames)
     }
 
-    actual fun stop() {}
-    actual fun close() {
-        stream.close()
-    }
 }
