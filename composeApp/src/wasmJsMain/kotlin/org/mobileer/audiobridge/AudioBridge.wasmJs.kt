@@ -8,11 +8,16 @@ external fun getOutputCapacityInFrames(): Int
 external fun setOutputFramesWritten(value: Int)
 external fun startWebAudio()
 external fun stopWebAudio()
+external fun getAudioSampleRate(): Int
 
 actual class AudioBridge actual constructor(context: Any?) {
     actual fun open(context: Any?, sampleRate: Int): Int {
         startWebAudio()
         return 0
+    }
+
+    actual fun getSampleRate(): Int {
+        return getAudioSampleRate()
     }
 
     actual fun start(): Int {

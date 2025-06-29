@@ -17,26 +17,38 @@ import kotlin.time.Duration.Companion.milliseconds
 
 const val BUFFER_SIZE_FRAMES = 256
 
-// Configuration
-const val SAMPLE_RATE = 44100
-
 val audioBridge = AudioBridge()
 
-class SineWaveGenerator(private val frequency: Double,
+class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
     private var phase = 0.0 // Current phase, maintained between calls
-    private val phaseIncrement = 2 * PI * frequency / SAMPLE_RATE
+    private var currentSampleRate = 44100
+    private var phaseIncrement = 2 * PI * frequency / currentSampleRate
 
     fun generateBuffer(buffer: FloatArray, numFrames: Int) {
         for (i in 0 until numFrames) {
             val sampleValue = amplitude * sin(phase).toFloat()
             buffer[i] = sampleValue
             phase += phaseIncrement
-            // Wrap phase to keep it within a manageable range (optional but good practice)
+            // Wrap phase to keep it within a manageable range
             if (phase >= 2 * PI) {
                 phase -= 2 * PI
             }
         }
+    }
+
+    fun setFrequency(newFrequency: Float) {
+        frequency = newFrequency
+        updatePhaseIncrement()
+    }
+
+    fun setSampleRate(newSampleRate: Int) {
+        currentSampleRate = newSampleRate
+        updatePhaseIncrement()
+    }
+
+    private fun updatePhaseIncrement() {
+        phaseIncrement = 2 * PI * frequency / currentSampleRate
     }
 }
 
@@ -48,11 +60,15 @@ fun startAudioStream(frequency: Double): Job { // Return the Job
     audioStreamJob?.cancel() // This ensures only one stream runs if called multiple times
 
     val job = GlobalScope.launch(Dispatchers.Default) {
-        val leftSine = SineWaveGenerator(frequency)
-        val rightSine = SineWaveGenerator(frequency * 5.0 / 4.0) // Example: perfect fifth
+        val leftSine = SineWaveGenerator(frequency.toFloat())
+        val rightSine = SineWaveGenerator((frequency * 5.0 / 4.0).toFloat()) // Example: perfect fifth
         val leftBuffer = FloatArray(BUFFER_SIZE_FRAMES)
         val rightBuffer = FloatArray(BUFFER_SIZE_FRAMES)
         val stereoBuffer = FloatArray(BUFFER_SIZE_FRAMES * 2)
+        val sampleRate = audioBridge.getSampleRate()
+        println("AudioBridge sample rate: $sampleRate")
+        leftSine.setSampleRate(sampleRate)
+        rightSine.setSampleRate(sampleRate)
 
         try {
             while (isActive) { // Check isActive for cooperative cancellation

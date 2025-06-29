@@ -2,8 +2,12 @@ package org.mobileer.audiobridge
 
 
 expect class AudioBridge(context: Any? = null) {
+    /**
+     * Open a stereo audio output stream.
+     */
     fun open(context: Any? = null,
              sampleRate: Int = 44100): Int
+    fun getSampleRate(): Int
     fun start(): Int
     fun getChannelCount(): Int
     fun getFramesPerBurst(): Int

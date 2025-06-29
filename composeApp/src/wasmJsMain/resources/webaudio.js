@@ -26,10 +26,22 @@ const INDEX_FRAMES_WRITTEN = 0;
 const INDEX_FRAMES_READ = 1;
 const INDEX_CAPACITY = 2;
 
+// BTW, 2147403647 is two seconds from numeric overflow, for testing.
 // Initialize the queue structure
 sharedIntArray[INDEX_FRAMES_WRITTEN] = 0; // framesWritten
 sharedIntArray[INDEX_FRAMES_READ] = 0; // framesRead
 sharedIntArray[INDEX_CAPACITY] = capacityInFrames;
+
+function getAudioSampleRate() {
+    let sampleRate = 0;
+    if (!audioContext) {
+        sampleRate = -1;
+    } else {
+        sampleRate = audioContext.sampleRate;
+    }
+    // console.log(`Audio sample rate: ${sampleRate}`);
+    return sampleRate;
+}
 
 function getOutputFramesPerBurst() {
     return 128; // fixed quantum size in WebAudio
@@ -127,6 +139,7 @@ function showJavaScriptAlert() {
 
 window.startWebAudio = startWebAudio;
 window.stopWebAudio = stopWebAudio;
+window.getAudioSampleRate = getAudioSampleRate;
 window.showJavaScriptAlert = showJavaScriptAlert;
 window.setAudioPair = setAudioPair;
 window.getOutputFramesWritten = getOutputFramesWritten;

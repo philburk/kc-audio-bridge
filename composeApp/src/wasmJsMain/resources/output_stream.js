@@ -26,9 +26,9 @@ class CustomOutputStream extends AudioWorkletProcessor {
     const output = outputs[0];
     const channelCount = output.length;
     const framesPerBurst = output[0].length;
-    if ((framesRead + framesPerBurst) >= framesWritten) {
-       console.log(`Underflow! read = ${framesRead}, written = ${framesWritten}`)
-    }
+//    if ( ((framesWritten - framesRead) & 0xFFFFFFFF) < framesPerBurst) {
+//       console.log(`Underflow! read = ${framesRead}, written = ${framesWritten}`)
+//    }
     // Data in the float array is interleaved.
     // We have to deinterleave it into the output buffers.
     for (let channel = 0; channel < channelCount; ++channel) {
