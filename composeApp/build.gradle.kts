@@ -84,11 +84,11 @@ kotlin {
 }
 
 android {
-    namespace = "org.mobileer.audiobridge"
+    namespace = "com.mobileer.audiobridge"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "org.mobileer.audiobridge"
+        applicationId = "com.mobileer.audiobridge"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -124,11 +124,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "org.mobileer.audiobridge.MainKt"
+        mainClass = "com.mobileer.audiobridge.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "org.mobileer.audiobridge"
+            packageName = "com.mobileer.audiobridge"
             packageVersion = "1.0.0"
         }
     }
