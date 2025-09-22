@@ -1,10 +1,26 @@
+/*
+ * Copyright 2025 Phil Burk, Mobileer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.mobileer.audiobridge
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 
-actual class AudioBridge actual constructor(private val context: Any?) {
+actual class AudioBridge actual constructor() {
 
     private var mSampleRate = 44100 // Default sample rate
     private var mChannelCount = 2 // Stereo
@@ -15,7 +31,7 @@ actual class AudioBridge actual constructor(private val context: Any?) {
      *
      * @param sampleRate
      */
-    actual fun open(context: Any?, sampleRate: Int): Int {
+    actual fun open(sampleRate: Int): AudioResult {
         mSampleRate = sampleRate // We'll stick to the requested sampleRate if possible, otherwise use default
         val minBufferSize = AudioTrack.getMinBufferSize(
             mSampleRate,
@@ -23,7 +39,7 @@ actual class AudioBridge actual constructor(private val context: Any?) {
             AudioFormat.ENCODING_PCM_FLOAT
         )
         if (minBufferSize < 0) {
-            return minBufferSize // Error code from getMinBufferSize
+            return AudioResult.ERROR_INTERNAL
         }
 
         mAudioTrack = AudioTrack.Builder()
@@ -42,17 +58,23 @@ actual class AudioBridge actual constructor(private val context: Any?) {
             )
             .setBufferSizeInBytes(minBufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
+            .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
 
-        return if (mAudioTrack?.state == AudioTrack.STATE_INITIALIZED) 0 else -1 // TODO define result codes
+        return if (mAudioTrack?.state == AudioTrack.STATE_INITIALIZED) AudioResult.OK else
+            AudioResult.ERROR_UNAVAILABLE
     }
 
     /**
      * Start the stream.
      */
-    actual fun start(): Int {
-        mAudioTrack?.play()
-        return 0 // TODO define result codes
+    actual fun start(): AudioResult {
+        val track = mAudioTrack
+        if (track == null) {
+            return AudioResult.ERROR_INVALID_STATE
+        }
+        track.play()
+        return AudioResult.OK
     }
 
     /**
@@ -61,11 +83,18 @@ actual class AudioBridge actual constructor(private val context: Any?) {
      * @param buffer
      * @param offset
      * @param numFrames
-     * @return
+     * @return number of frames or -1 if an error occurs
      */
-    actual fun write(buffer: FloatArray, offset: Int, numFrames: Int): Int {
-        return mAudioTrack?.write(buffer, offset, numFrames * mChannelCount, AudioTrack.WRITE_BLOCKING)
-            ?: -1 // Error writing
+    actual fun write(buffer: FloatArray,
+                     offsetFrames: Int,
+                     numFrames: Int): Int {
+        val numFloatsOrError =  mAudioTrack?.write(buffer,
+            offsetFrames * mChannelCount,
+                numFrames * mChannelCount,
+                AudioTrack.WRITE_BLOCKING
+            )?: AudioTrack.ERROR_DEAD_OBJECT
+        return if (numFloatsOrError < 0) numFloatsOrError else
+                (numFloatsOrError / mChannelCount)
     }
 
     /**
@@ -95,8 +124,6 @@ actual class AudioBridge actual constructor(private val context: Any?) {
     }
 
     actual fun getFramesPerBurst(): Int {
-        // This is a common value, but it can vary.
-        // For more accurate value, you might query AudioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER)
-        return mAudioTrack?.bufferSizeInFrames ?: 128
+        return 256; // It is not possible to get an accurate burst size from the Java API.
     }
 }

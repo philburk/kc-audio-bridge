@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025 Phil Burk, Mobileer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.mobileer.audiobridge
 
 external fun setAudioPair(framesWritten: Int, left: Float, right: Float): Boolean
@@ -10,34 +26,34 @@ external fun startWebAudio()
 external fun stopWebAudio()
 external fun getAudioSampleRate(): Int
 
-actual class AudioBridge actual constructor(context: Any?) {
-    actual fun open(context: Any?, sampleRate: Int): Int {
+actual class AudioBridge actual constructor() {
+    actual fun open(sampleRate: Int): AudioResult {
         startWebAudio()
-        return 0
+        return AudioResult.OK
     }
 
     actual fun getSampleRate(): Int {
         return getAudioSampleRate()
     }
 
-    actual fun start(): Int {
-        return 0
+    actual fun start(): AudioResult {
+        return AudioResult.OK
     }
 
     actual fun getChannelCount(): Int {
-        return 2
-    } // STEREO
+        return 2  // STEREO
+    }
 
     actual fun getFramesPerBurst(): Int {
         return getOutputFramesPerBurst()
     }
 
     /**
-     * Write some stereo audio data to the output stream.
+     * Write some audio data to the output stream.
      */
     actual fun write(
         buffer: FloatArray,
-        offset: Int,
+        offsetFrames: Int,
         numFrames: Int
     ): Int {
         val framesWritten = getOutputFramesWritten()
@@ -46,7 +62,7 @@ actual class AudioBridge actual constructor(context: Any?) {
         val emptyFrames = maxOf(0, capacity - (framesWritten - framesRead))
         val framesToWrite = minOf(numFrames, emptyFrames) // data left to write
         for (frameCount in 0 until framesToWrite) {
-            val frameIndex = offset + frameCount
+            val frameIndex = offsetFrames + frameCount
             setAudioPair(
                 framesWritten + frameCount,
                 buffer[frameIndex * 2], // left channel
@@ -59,6 +75,7 @@ actual class AudioBridge actual constructor(context: Any?) {
     }
 
     actual fun stop() {}
+
     actual fun close() {
         stopWebAudio()
     }

@@ -19,14 +19,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.min
 import kotlin.math.sin
 
-const val BUFFER_SIZE_FRAMES = 256
 
 val audioBridge = AudioBridge()
 
 class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
+
     private var phase = 0.0 // Current phase, maintained between calls
     private var currentSampleRate = 44100
     private var phaseIncrement = 2 * PI * frequency / currentSampleRate
@@ -61,42 +62,48 @@ class SineWaveGenerator(private var frequency: Float,
 // Keep a reference to the Job of the audio stream
 private var audioStreamJob: Job? = null // Make this private if only App controls it
 
-fun startAudioStream(frequency: Double): Job { // Return the Job
+fun startAudioStreamJob(): Job { // Return the Job
+    val MAX_FRAMES_PER_BUFFER = 256
+    val STEREO_CHANNELS = 2
+    val BASE_FREQUENCY = 440.0 // Concert A for the first sine tone
+
     // Cancel any existing job before starting a new one
     audioStreamJob?.cancel() // This ensures only one stream runs if called multiple times
 
     val job = GlobalScope.launch(Dispatchers.Default) {
-        val leftSine = SineWaveGenerator(frequency.toFloat())
-        val rightSine = SineWaveGenerator((frequency * 5.0 / 4.0).toFloat()) // Example: perfect fifth
-        val leftBuffer = FloatArray(BUFFER_SIZE_FRAMES)
-        val rightBuffer = FloatArray(BUFFER_SIZE_FRAMES)
-        val stereoBuffer = FloatArray(BUFFER_SIZE_FRAMES * 2)
+        val leftSine = SineWaveGenerator(BASE_FREQUENCY.toFloat())
+        val rightSine = SineWaveGenerator((BASE_FREQUENCY * 5.0 / 4.0).toFloat())
+
+        val framesPerBurst = audioBridge.getFramesPerBurst()
+        println("AudioBridge framesPerBurst: $framesPerBurst")
+        // Don't make the buffer too large because the note timing will be too grainy.
+        val bufferSizeFrames = min(framesPerBurst, MAX_FRAMES_PER_BUFFER)
+        val leftBuffer = FloatArray(bufferSizeFrames)
+        val rightBuffer = FloatArray(bufferSizeFrames)
+        val stereoBuffer = FloatArray(bufferSizeFrames * STEREO_CHANNELS)
+
         val sampleRate = audioBridge.getSampleRate()
         println("AudioBridge sample rate: $sampleRate")
         leftSine.setSampleRate(sampleRate)
         rightSine.setSampleRate(sampleRate)
 
+        // Set time to sleep based on the audio burst size.
+        val burstMillis = 1000L * bufferSizeFrames / sampleRate
+
         try {
             while (isActive) { // Check isActive for cooperative cancellation
-                leftSine.generateBuffer(leftBuffer, BUFFER_SIZE_FRAMES)
-                rightSine.generateBuffer(rightBuffer, BUFFER_SIZE_FRAMES)
+                leftSine.generateBuffer(leftBuffer, bufferSizeFrames)
+                rightSine.generateBuffer(rightBuffer, bufferSizeFrames)
 
                 // Interleave left and right buffers into stereoBuffer
-                for (i in 0 until BUFFER_SIZE_FRAMES) {
+                for (i in 0 until bufferSizeFrames) {
                     stereoBuffer[i * 2] = leftBuffer[i]      // Left channel
                     stereoBuffer[i * 2 + 1] = rightBuffer[i] // Right channel
                 }
 
-                var framesLeft = BUFFER_SIZE_FRAMES
+                var framesLeft = bufferSizeFrames
                 var offset = 0
-                while (framesLeft > 0 && isActive) { // Also check isActive in inner loop
-                    // Ensure audioBridge is open and started before writing
-                    // This check might be better placed outside the hot loop or handled by the caller
-                    // if (!audioBridge.isStartedAndOpen()) { // Hypothetical check
-                    //    delay(100) // Wait and retry or break
-                    //    continue
-                    // }
-
+                while (framesLeft > 0 && isActive) {
                     val frameCount = audioBridge.write(stereoBuffer, offset, framesLeft)
                     if (frameCount < 0) {
                         // Handle error from audioBridge.write, e.g., stream closed
@@ -107,13 +114,8 @@ fun startAudioStream(frequency: Double): Job { // Return the Job
                     offset += frameCount
                     framesLeft -= frameCount
                     if (framesLeft > 0 && isActive) {
-                        // Calculate delay more precisely based on frames written
-                        // This delay helps prevent busy-waiting if the audio buffer fills up quickly
-                        // The original delay was based on framesPerBurst, which might be different
-                        // from what was actually written or the buffer capacity.
-                        // A small fixed delay or a more dynamic one might be needed.
-                        delay(10) // Small delay to yield and prevent tight loop if write is very fast
-                        // Or calculate based on buffer status if possible.
+                        // Wait long enough for one burst of room to be available.
+                        delay(burstMillis)
                     }
                 }
             }
@@ -137,37 +139,50 @@ fun stopAudioStreamJob() {
     println("Requested to stop audio stream job.")
 }
 
-// App.kt
+fun startAudioDemo(): AudioResult {
+    // Open and start the audio bridge
+    // It's important that open() is called before start() and write()
+    val openResult = audioBridge.open()
+    if (openResult != AudioResult.OK) {
+        println("Failed to open audio bridge: $openResult")
+        // Handle error, maybe show a message to the user
+        return openResult
+    }
+    val startResult = audioBridge.start()
+    if (openResult != AudioResult.OK) {
+        println("Failed to start audio bridge: $startResult")
+        audioBridge.close() // Clean up if start fails
+        return openResult
+    }
+    println("AudioBridge opened and started.")
+    // Start the audio stream job
+    startAudioStreamJob()
+    println("Continuous tone started.")
+    return AudioResult.OK
+}
 
+fun stopAudioDemo() {
+    stopAudioStreamJob()
+    // Stop and close the audio bridge
+    audioBridge.stop()
+    audioBridge.close()
+    println("AudioBridge stopped and closed.")
+}
+
+// App.kt
 @Composable
 fun App() {
-    val frequency = 440.0 // Example frequency
     var isPlaying by remember { mutableStateOf(false) }
-    // No need to store the job in Composable state if startAudioStream manages it globally
-    // var currentAudioJob by remember { mutableStateOf<Job?>(null) }
-    // val coroutineScope = rememberCoroutineScope() // Not strictly needed for this button logic
 
     Row {
         Button(
             onClick = {
-                // Open and start the audio bridge
-                // It's important that open() is called before start() and write()
-                val openResult = audioBridge.open()
-                if (openResult < 0) {
-                    println("Failed to open audio bridge: $openResult")
+                val result = startAudioDemo()
+                if (result != AudioResult.OK) {
+                    println("Failed to open audio bridge: $result")
                     // Handle error, maybe show a message to the user
                     return@Button
                 }
-                val startResult = audioBridge.start()
-                if (startResult < 0) {
-                    println("Failed to start audio bridge: $startResult")
-                    audioBridge.close() // Clean up if start fails
-                    return@Button
-                }
-                println("AudioBridge opened and started.")
-                // Start the audio stream job
-                startAudioStream(frequency)
-                println("Continuous tone started.")
                 isPlaying = true
             },
             enabled = !isPlaying
@@ -177,11 +192,7 @@ fun App() {
 
         Button(
             onClick = {
-                stopAudioStreamJob()
-                // Stop and close the audio bridge
-                audioBridge.stop()
-                audioBridge.close()
-                println("AudioBridge stopped and closed.")
+                stopAudioDemo()
                 isPlaying = false
             },
             enabled = isPlaying

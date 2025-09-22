@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025 Phil Burk, Mobileer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.mobileer.audiobridge
 
 import javax.sound.sampled.AudioFormat
@@ -6,11 +22,11 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.LineUnavailableException
 import javax.sound.sampled.SourceDataLine
 
-actual class AudioBridge actual constructor(private val context: Any?) {
+actual class AudioBridge actual constructor() {
 
     private var mLine: SourceDataLine? = null
     private var mSampleRate = 0
-    private var mChannelCount = 0
+    private val mChannelCount = 2
     private var mFormat: AudioFormat? = null
     private var mByteBuffer: ByteArray? = null
     private val mAudioFramesPerJavaBuffer = 1024
@@ -19,11 +35,9 @@ actual class AudioBridge actual constructor(private val context: Any?) {
      * Open the stream.
      *
      * @param sampleRate
-     * @param channelCount
      */
-    actual fun open(context: Any?, sampleRate: Int): Int {
+    actual fun open(sampleRate: Int): AudioResult {
         mSampleRate = sampleRate
-        mChannelCount = 2 // TODO pass as parameter
         val bytesPerFrame = mChannelCount * 2 // 16 bit
         val bufferSize = mAudioFramesPerJavaBuffer * bytesPerFrame
         // Allocate a byte array for the native data.
@@ -37,25 +51,29 @@ actual class AudioBridge actual constructor(private val context: Any?) {
         val info = DataLine.Info(SourceDataLine::class.java, mFormat)
         if (!AudioSystem.isLineSupported(info)) {
             println("Line not supported $info")
-            return -1 // TODO define result codes
+            return AudioResult.ERROR_INVALID_FORMAT
         }
         return try {
             mLine = AudioSystem.getLine(info) as SourceDataLine
             // When the line is opened, it acquires necessary system resources and becomes operational.
             mLine!!.open(mFormat, bufferSize)
-            0
+            AudioResult.OK
         } catch (e: LineUnavailableException) {
             println("LineUnavailableException $e")
-            -2 // TODO define result codes
+            AudioResult.ERROR_UNAVAILABLE
         }
     }
 
     /**
      * Start the stream.
      */
-    actual fun start(): Int {
-        mLine!!.start()
-        return 0 // TODO define result codes
+    actual fun start(): AudioResult {
+        val line = mLine
+        if (line == null) {
+            return AudioResult.ERROR_INVALID_STATE
+        }
+        line.start()
+        return AudioResult.OK
     }
 
     /**
@@ -64,11 +82,13 @@ actual class AudioBridge actual constructor(private val context: Any?) {
      * @param floatArray
      * @param offset
      * @param numFrames
-     * @return
+     * @return number of frames or -1 if an error occurs
      */
-    actual fun write(buffer: FloatArray, offset: Int, numFrames: Int): Int {
+    actual fun write(buffer: FloatArray,
+                     offsetFrames: Int,
+                     numFrames: Int): Int {
         if (mLine == null || !mLine!!.isOpen()) {
-            return 0
+            return -1
         }
         var framesToWrite = numFrames;
 
@@ -84,8 +104,8 @@ actual class AudioBridge actual constructor(private val context: Any?) {
         }
 
         // Convert float samples to 16-bit PCM then pack into a byte array.
-        val startSample: Int = offset * mChannelCount
-        val endSample: Int = (offset + framesToWrite) * mChannelCount
+        val startSample: Int = offsetFrames * mChannelCount
+        val endSample: Int = (offsetFrames + framesToWrite) * mChannelCount
         var byteIndex = 0
         for (sampleIndex in startSample until endSample) {
             // Convert floating point to 16-bit short.
