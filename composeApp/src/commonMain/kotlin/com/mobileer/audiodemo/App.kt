@@ -1,6 +1,6 @@
-package com.mobileer.audiobridge
+package com.mobileer.audiodemo
 
-//import kotlinx.io.core.* // Import from kotlinx-io
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.mobileer.audiobridge.AudioBridge
+import com.mobileer.audiobridge.AudioResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -21,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
-
 
 val audioBridge = AudioBridge()
 
@@ -174,32 +175,35 @@ fun stopAudioDemo() {
 fun App() {
     var isPlaying by remember { mutableStateOf(false) }
 
-    Row {
-        Button(
-            onClick = {
-                val result = startAudioDemo()
-                if (result != AudioResult.OK) {
-                    println("Failed to open audio bridge: $result")
-                    // Handle error, maybe show a message to the user
-                    return@Button
-                }
-                isPlaying = true
-            },
-            enabled = !isPlaying
-        ) {
-            Text("START")
-        }
+    Column() {
+        Text("Test audio on ${getPlatform().name}")
 
-        Button(
-            onClick = {
-                stopAudioDemo()
-                isPlaying = false
-            },
-            enabled = isPlaying
-        ) {
-            Text("STOP")
-        }
+        Row {
+            Button(
+                onClick = {
+                    val result = startAudioDemo()
+                    if (result != AudioResult.OK) {
+                        println("Failed to open audio bridge: $result")
+                        // Handle error, maybe show a message to the user
+                        return@Button
+                    }
+                    isPlaying = true
+                },
+                enabled = !isPlaying
+            ) {
+                Text("START")
+            }
 
+            Button(
+                onClick = {
+                    stopAudioDemo()
+                    isPlaying = false
+                },
+                enabled = isPlaying
+            ) {
+                Text("STOP")
+            }
+        }
     }
 
     DisposableEffect(Unit) {

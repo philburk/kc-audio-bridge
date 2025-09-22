@@ -1,5 +1,6 @@
 package com.mobileer.audiobridge
 
+import com.mobileer.audiodemo.Platform
 import platform.UIKit.UIDevice
 
 class IOSPlatform: Platform {

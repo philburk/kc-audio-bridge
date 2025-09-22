@@ -1,4 +1,4 @@
-package com.mobileer.audiobridge
+package com.mobileer.audiodemo
 
 class WasmPlatform: Platform {
     override val name: String = "Web with Kotlin/Wasm"

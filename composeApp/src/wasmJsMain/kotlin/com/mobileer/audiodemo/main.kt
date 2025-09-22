@@ -1,4 +1,4 @@
-package com.mobileer.audiobridge
+package com.mobileer.audiodemo
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport

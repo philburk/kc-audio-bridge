@@ -1,4 +1,4 @@
-package com.mobileer.audiobridge
+package com.mobileer.audiodemo
 
 interface Platform {
     val name: String

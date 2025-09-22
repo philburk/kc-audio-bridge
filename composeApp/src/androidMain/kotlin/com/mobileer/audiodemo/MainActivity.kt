@@ -1,4 +1,4 @@
-package com.mobileer.audiobridge
+package com.mobileer.audiodemo
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
