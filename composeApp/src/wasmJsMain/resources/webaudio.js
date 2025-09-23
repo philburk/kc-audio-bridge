@@ -1,4 +1,20 @@
-// WebAudio interface for AudioBridge.kt
+/*
+ * Copyright 2025 Phil Burk, Mobileer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ // WebAudio interface for AudioBridge.kt
 
 let audioContext;
 let outputWorkletNode;
@@ -6,7 +22,7 @@ let outputWorkletNode;
 const STEREO = 2;
 
 // Queue parameters
-const capacityInFrames = 2048; // TODO Must be power of two.
+const capacityInFrames = 2048; // Must be power of two.
 const capacityInSamples = capacityInFrames * STEREO;
 const capacityFrameMask = capacityInFrames - 1; // bit mask
 const capacitySampleMask = capacityInSamples - 1;  // bit mask
