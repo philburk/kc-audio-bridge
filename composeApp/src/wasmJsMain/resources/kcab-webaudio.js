@@ -104,7 +104,7 @@ async function startWebAudio() {
     try {
         if (!audioContext) {
             audioContext = new AudioContext();
-            await audioContext.audioWorklet.addModule('output_stream.js');
+            await audioContext.audioWorklet.addModule('kcab-output-stream.js');
             outputWorkletNode = new AudioWorkletNode(audioContext,
                     'output-stream', {
                     numberOfInputs: 0, // Or 0 if it's a source node
