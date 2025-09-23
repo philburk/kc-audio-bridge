@@ -6,7 +6,7 @@ To try a simple demo on the web, visit: https://transjam.com/kc-audio-bridge/
 # Docs for kc-audio-bridge
 
 * [How to Build and Run the Demo](docs/HowToBuildDemo.md)
-* How to add AudioBridge to an existing project](docs/AddingToAnotherProject.md)
+* [How to add AudioBridge to an existing project](docs/AddingToAnotherProject.md)
 * [How to Deploy on the Web](docs/HowToDeployOnWeb.md)
 
 # More about Kotlin/Compose
