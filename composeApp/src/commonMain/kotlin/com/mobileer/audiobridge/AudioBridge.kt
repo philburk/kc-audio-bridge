@@ -29,6 +29,7 @@ expect class AudioBridge() {
      * Open a stereo audio output stream with float format.
      * Allocate the audio resources.
      * @param sampleRate The requested sample rate in Hz. Actual rate may differ.
+     * @return AudioResult.OK if successful.
      */
     fun open(sampleRate: Int = 44100): AudioResult
     fun start(): AudioResult
