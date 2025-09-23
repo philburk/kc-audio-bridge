@@ -13,12 +13,12 @@ For Apache, do something like the steps below. Your configuration may differ.
 1. Enter:   cd /etc/httpd/conf
 1. Use vi or your favorite editor:   sudo vi httpd.conf
 1. Search for "AddType".
-1. Add:    AddType application/wasm .wasm
-1. Enter:    sudo systemctl restart httpd
+1. Add this line:    AddType application/wasm .wasm
+1. Restart Apache by entering:    sudo systemctl restart httpd
 
 ## Create an Android Studio Configuration to Build an App for your Website
 
-1. Click the red button to stop any running apps. (Android Studio has some trouble running apps on multiple devices as of 2025-09-22)
+1. Click the red button to stop any running apps. (Android Studio build can hang when running apps on multiple devices as of 2025-09-22)
 1. Go to the Configuration menu and select "Edit Configurations...
 1. Click the "+" to add a configuration.
 1. Select Gradle from the popup menu.
