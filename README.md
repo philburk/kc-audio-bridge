@@ -1,7 +1,11 @@
-Cross-platform audio output for Kotlin apps on Android, Web, and Desktop.
+# KC Audio Bridge
 
-This is a Kotlin/Compose Multiplatform that can run on almost every device.
-It provides a simple and portable audio output API that can be used to play stereo floating point buffers.
+Cross-platform audio output for Kotlin/Compose apps on Android, Web, and Desktop.
+
+This is a Kotlin/Compose Multiplatform library that can output audio on almost every device.
+It provides a simple and portable API that can be used to play stereo floating point buffers.
+
+The API is defined in [AudioBridge.kt](https://github.com/philburk/kc-audio-bridge/blob/main/composeApp/src/commonMain/kotlin/com/mobileer/audiobridge/AudioBridge.kt).
 
 To try a simple demo on the web, visit: https://transjam.com/kc-audio-bridge/
 
