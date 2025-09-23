@@ -1,5 +1,7 @@
-This is a Kotlin/Compose Multiplatform project targeting Android, Web, Desktop.
+This is a Kotlin/Compose Multiplatform project targeting Android, Web, and Desktop.
 It provides a simple and portable audio output API that can be used to play stereo floating point buffers.
+
+To try a simple demo on the web, visit: https://transjam.com/kc-audio-bridge/
 
 # Docs for kc-audio-bridge
 
@@ -16,7 +18,6 @@ It provides a simple and portable audio output API that can be used to play ster
 
 * `/iosApp` contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform, 
   you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
-
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
 [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
