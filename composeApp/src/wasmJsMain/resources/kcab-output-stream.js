@@ -23,6 +23,7 @@ const STEREO = 2;
 const INDEX_FRAMES_WRITTEN = 0;
 const INDEX_FRAMES_READ = 1;
 const INDEX_CAPACITY = 2;
+const INDEX_FRAMES_UNDERFLOWED = 3;
 
 class CustomOutputStream extends AudioWorkletProcessor {
 
@@ -42,19 +43,26 @@ class CustomOutputStream extends AudioWorkletProcessor {
     const output = outputs[0];
     const channelCount = output.length;
     const framesPerBurst = output[0].length;
-//    if ( ((framesWritten - framesRead) & 0xFFFFFFFF) < framesPerBurst) {
-//       console.log(`Underflow! read = ${framesRead}, written = ${framesWritten}`)
-//    }
+    const framesAvailable = (framesWritten - framesRead) & 0xFFFFFFFF;
+    const framesMissing = framesPerBurst - framesAvailable
+    if ( framesMissing > 0) {
+       Atomics.add(this.sharedIntArray, INDEX_FRAMES_UNDERFLOWED, framesMissing);
+       // console.log(`Underflow! read = ${framesRead}, written = ${framesWritten}`)
+    }
     // Data in the float array is interleaved.
-    // We have to deinterleave it into the output buffers.
+    // We have to de-interleave it into the output buffers.
     for (let channel = 0; channel < channelCount; ++channel) {
       const outputChannel = output[channel];
       let sampleOffset = (framesRead * STEREO) + channel;
-      for (let i = 0; i < outputChannel.length; ++i) {
+      let i = 0;
+      for (; i < framesAvailable; ++i) {
         const readIndex = sampleOffset & this.sampleMask;
-        //outputChannel[i] = (Math.random() * 2.0) - 1.0;
         outputChannel[i] = this.sharedFloatArray[readIndex];
         sampleOffset += STEREO; // stride
+      }
+      // Silence the rest of the buffer in case of an underflow.
+      for (; i < framesMissing; ++i) {
+        outputChannel[i] = 0.0;
       }
     }
     Atomics.store(this.sharedIntArray, INDEX_FRAMES_READ, framesRead + framesPerBurst);

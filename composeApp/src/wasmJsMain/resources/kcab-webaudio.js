@@ -33,20 +33,23 @@ const floatBufferSizeBytes = Float32Array.BYTES_PER_ELEMENT * capacityInSamples;
 const floatSharedBuffer = new SharedArrayBuffer(floatBufferSizeBytes);
 const sharedFloatArray = new Float32Array(floatSharedBuffer);
 
-const intBufferSizeBytes = Int32Array.BYTES_PER_ELEMENT * 3; // 3 for writeCursor, readCursor and capacity
-const intSharedBuffer = new SharedArrayBuffer(intBufferSizeBytes);
-const sharedIntArray = new Int32Array(intSharedBuffer);
-
 // Define offsets in the shared int buffer for the FIFO control
 const INDEX_FRAMES_WRITTEN = 0;
 const INDEX_FRAMES_READ = 1;
 const INDEX_CAPACITY = 2;
+const INDEX_FRAMES_UNDERFLOWED = 3;
+const NUM_FIFO_INTS = 4;
+
+const intBufferSizeBytes = Int32Array.BYTES_PER_ELEMENT * NUM_FIFO_INTS;
+const intSharedBuffer = new SharedArrayBuffer(intBufferSizeBytes);
+const sharedIntArray = new Int32Array(intSharedBuffer);
 
 // BTW, 2147403647 is two seconds from numeric overflow, for testing.
 // Initialize the queue structure
 sharedIntArray[INDEX_FRAMES_WRITTEN] = 0; // framesWritten
 sharedIntArray[INDEX_FRAMES_READ] = 0; // framesRead
 sharedIntArray[INDEX_CAPACITY] = capacityInFrames;
+sharedIntArray[INDEX_FRAMES_UNDERFLOWED] = 0;
 
 function getAudioSampleRate() {
     let sampleRate = 0;
@@ -163,4 +166,3 @@ window.getOutputFramesRead = getOutputFramesRead;
 window.getOutputFramesPerBurst = getOutputFramesPerBurst;
 window.getOutputCapacityInFrames = getOutputCapacityInFrames;
 window.setOutputFramesWritten = setOutputFramesWritten;
-
