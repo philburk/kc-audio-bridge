@@ -1,15 +1,17 @@
-This is a Kotlin/Compose Multiplatform project targeting Android, Web, and Desktop.
+Cross-platform audio output for Kotlin apps on Android, Web, and Desktop.
+
+This is a Kotlin/Compose Multiplatform that can run on almost every device.
 It provides a simple and portable audio output API that can be used to play stereo floating point buffers.
 
 To try a simple demo on the web, visit: https://transjam.com/kc-audio-bridge/
 
-# Docs for kc-audio-bridge
+## Docs for kc-audio-bridge
 
 * [How to Build and Run the Demo](docs/HowToBuildDemo.md)
-* [How to add AudioBridge to an existing project](docs/AddingToAnotherProject.md)
-* [How to Deploy on the Web](docs/HowToDeployOnWeb.md)
+* [How to Add AudioBridge to an Existing Project](docs/AddingToAnotherProject.md)
+* [How to Deploy your App on the Web](docs/HowToDeployOnWeb.md)
 
-# More about Kotlin/Compose
+## More about Kotlin/Compose
 
 * `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
