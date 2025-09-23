@@ -9,6 +9,7 @@ You do not need an Android device for development. Android Studio include an And
 Android Studio also includes an advanced coding AI assistant called Gemini.
 
 ## Setting up the IDE
+
 1. Learn about Kotlin Multiplatform Development at: https://www.jetbrains.com/kotlin-multiplatform/
 1. Install the latest version of Android Studio from https://developer.android.com/studio
 1. Checkout this repository from GitHub at https://github.com/philburk/kc-audio-bridge
@@ -20,7 +21,7 @@ Android Studio also includes an advanced coding AI assistant called Gemini.
 1. Plug in an Android Phone if you have one. If not the emulator will be used.
 1. Select the Android "composeApp" configuration from the menu at the top of the window.
 1. Click the triangular run button. It will build for a while.
-1. If you see a dialog asking for USB debugging, grant permission.
+1. If you see a dialog on the phone asking for USB Debugging then grant permission.
 1. You should see an app appear. Click the START button.
 1. Turn up the volume on the Android device (and the host if using emulation.)
 1. You should hear a sine wave.
@@ -52,4 +53,4 @@ The Kotlin code will be compiled to Web Assembly (WASM) and can run in a web pag
 1. In Gradle Project menu, select: kc-audio-bridge/composeApp
 1. Click OK button.
 1. Click the triangular run button. It will build for a while.
-1. You should see browser web page appear. Click the START button.
+1. You should see a localhost web browser page appear. Click the START button.
