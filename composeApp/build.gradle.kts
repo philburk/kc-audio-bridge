@@ -40,6 +40,7 @@ kotlin {
         browser {
             val rootDirPath = project.rootDir.path
             val projectDirPath = project.projectDir.path
+            val audioBridgeResources = project.rootDir.resolve("audio-bridge/src/wasmJsMain/resources").path
             commonWebpackConfig {
                 outputFileName = "composeApp.js"
                 devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
@@ -47,6 +48,7 @@ kotlin {
                         // Serve sources to debug inside browser
                         add(rootDirPath)
                         add(projectDirPath)
+                        add(audioBridgeResources)
                     }
                 }
             }
@@ -71,6 +73,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
+            implementation(project(":audio-bridge"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -132,4 +135,13 @@ compose.desktop {
             packageVersion = "1.0.0"
         }
     }
+}
+
+val copyAudioBridgeResources = tasks.register<Copy>("copyAudioBridgeResources") {
+    from(project.rootDir.resolve("audio-bridge/src/wasmJsMain/resources"))
+    into(layout.buildDirectory.dir("dist/wasmJs/productionExecutable"))
+}
+
+tasks.named("wasmJsBrowserDistribution").configure {
+    finalizedBy(copyAudioBridgeResources)
 }
