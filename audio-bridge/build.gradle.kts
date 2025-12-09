@@ -6,7 +6,11 @@ import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
+    `maven-publish`
 }
+
+group = "com.mobileer"
+version = "0.1.0"
 
 kotlin {
     androidTarget {
