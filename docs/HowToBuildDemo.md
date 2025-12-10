@@ -34,8 +34,8 @@ This runs the app using the Java Virtual Machine on Mac, Windows or Linux.
 1. Go to the Configuration menu and select "Edit Configurations...
 1. Click the "+" to add a configuration.
 1. Select Gradle from the pop menu.
-1. Set the name to: kc-audio-bridge [composeApp:run]
-1. Set the Run field to: composeApp:Run
+1. Set the name to "kc-audio-bridge [composeApp:run]" or "kc-audio-bridge [demo:run]" depending on your app name.
+1. Set the Run field to: :composeApp:Run  OR  :demo:run
 1. Click OK button.
 1. Click the triangular run button. It will build for a while.
 1. You should see an app appear. Click the START button.
