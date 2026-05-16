@@ -80,7 +80,7 @@ class SineWaveGenerator(private var frequency: Float,
 private var audioStreamJob: Job? = null // Make this private if only App controls it
 
 fun startAudioStreamJob(): Job { // Return the Job
-    val MAX_FRAMES_PER_BUFFER = 256
+    val MAX_FRAMES_PER_BUFFER = 64
     val STEREO_CHANNELS = 2
     val BASE_FREQUENCY = 440.0 // Concert A for the first sine tone
 

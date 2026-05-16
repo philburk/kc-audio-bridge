@@ -131,7 +131,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
 }
 
-
 compose.desktop {
     application {
         mainClass = "com.mobileer.audiodemo.MainKt"
