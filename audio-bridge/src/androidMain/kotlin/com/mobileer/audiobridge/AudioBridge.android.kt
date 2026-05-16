@@ -20,19 +20,17 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 
-actual class AudioBridge actual constructor() {
+internal actual fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge {
+    return AudioTrackOutputBridge(config)
+}
 
-    private var mSampleRate = 44100 // Default sample rate
-    private var mChannelCount = 2 // Stereo
+internal class AudioTrackOutputBridge(private val config: AudioConfig) : AudioOutputBridge {
+
+    private var mSampleRate = config.sampleRate
+    private var mChannelCount = config.channels
     private var mAudioTrack: AudioTrack? = null
 
-    /**
-     * Open the stream.
-     *
-     * @param sampleRate
-     */
-    actual fun open(sampleRate: Int): AudioResult {
-        mSampleRate = sampleRate // We'll stick to the requested sampleRate if possible, otherwise use default
+    override fun open(): AudioResult {
         val minBufferSize = AudioTrack.getMinBufferSize(
             mSampleRate,
             AudioFormat.CHANNEL_OUT_STEREO,
@@ -65,65 +63,45 @@ actual class AudioBridge actual constructor() {
             AudioResult.ERROR_UNAVAILABLE
     }
 
-    /**
-     * Start the stream.
-     */
-    actual fun start(): AudioResult {
-        val track = mAudioTrack
-        if (track == null) {
-            return AudioResult.ERROR_INVALID_STATE
-        }
+    override fun start(): AudioResult {
+        val track = mAudioTrack ?: return AudioResult.ERROR_INVALID_STATE
         track.play()
         return AudioResult.OK
     }
 
-    /**
-     * Write the data to the stream.
-     *
-     * @param buffer
-     * @param offset
-     * @param numFrames
-     * @return number of frames or -1 if an error occurs
-     */
-    actual fun write(buffer: FloatArray,
+    override fun write(buffer: FloatArray,
                      offsetFrames: Int,
                      numFrames: Int): Int {
         val numFloatsOrError =  mAudioTrack?.write(buffer,
             offsetFrames * mChannelCount,
                 numFrames * mChannelCount,
                 AudioTrack.WRITE_BLOCKING
-            )?: AudioTrack.ERROR_DEAD_OBJECT
+            ) ?: AudioTrack.ERROR_DEAD_OBJECT
         return if (numFloatsOrError < 0) numFloatsOrError else
                 (numFloatsOrError / mChannelCount)
     }
 
-    /**
-     * Stop the stream.
-     */
-    actual fun stop() {
+    override fun stop() {
         if (mAudioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING) {
             mAudioTrack?.stop()
         }
     }
 
-    /**
-     * Close the stream and release resources.
-     */
-    actual fun close() {
+    override fun close() {
         stop()
         mAudioTrack?.release()
         mAudioTrack = null
     }
 
-    actual fun getSampleRate(): Int {
+    override fun getSampleRate(): Int {
         return mSampleRate
     }
 
-    actual fun getChannelCount(): Int {
+    override fun getChannelCount(): Int {
         return mChannelCount
     }
 
-    actual fun getFramesPerBurst(): Int {
-        return 256; // It is not possible to get an accurate burst size from the Java API.
+    override fun getFramesPerBurst(): Int {
+        return config.framesPerBuffer
     }
 }

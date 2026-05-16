@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.mobileer.audiobridge.AudioBridge
+import com.mobileer.audiobridge.AudioOutputBridge
 import com.mobileer.audiobridge.AudioResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,7 @@ import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
 
-val audioBridge = AudioBridge()
+val audioBridge = AudioOutputBridge.create()
 
 class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
@@ -80,7 +81,7 @@ class SineWaveGenerator(private var frequency: Float,
 private var audioStreamJob: Job? = null // Make this private if only App controls it
 
 fun startAudioStreamJob(): Job { // Return the Job
-    val MAX_FRAMES_PER_BUFFER = 256
+    val MAX_FRAMES_PER_BUFFER = 64
     val STEREO_CHANNELS = 2
     val BASE_FREQUENCY = 440.0 // Concert A for the first sine tone
 

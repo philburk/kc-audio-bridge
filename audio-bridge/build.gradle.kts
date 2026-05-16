@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.mobileer"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     jvmToolchain(17)
@@ -23,18 +23,18 @@ kotlin {
         }
     }
 
-    jvm("desktop") {
-    }
-
     listOf(
         iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "audio-bridge"
+            baseName = "AudioBridge"
             isStatic = true
         }
+    }
+
+    jvm("desktop") {
     }
 
     @OptIn(ExperimentalWasmDsl::class)

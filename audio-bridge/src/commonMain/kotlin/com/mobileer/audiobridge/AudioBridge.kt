@@ -24,28 +24,32 @@ enum class AudioResult(val code: Int) {
     ERROR_INTERNAL(-103),
 }
 
-expect class AudioBridge() {
+class AudioConfig internal constructor(
+    val sampleRate: Int,
+    val channels: Int,
+    val framesPerBuffer: Int
+) {
+    class Builder {
+        var sampleRate: Int = 44100
+        var channels: Int = 2
+        var framesPerBuffer: Int = 256
+
+        internal fun build(): AudioConfig {
+            return AudioConfig(sampleRate, channels, framesPerBuffer)
+        }
+    }
+}
+
+interface AudioBridge {
     /**
-     * Open a stereo audio output stream with float format.
+     * Open an audio stream using the configuration when created.
      * Allocate the audio resources.
-     * @param sampleRate The requested sample rate in Hz. Actual rate may differ.
      * @return AudioResult.OK if successful.
      */
-    fun open(sampleRate: Int = 44100): AudioResult
+    fun open(): AudioResult
     fun start(): AudioResult
     fun stop()
     fun close()
-
-    /**
-     * Write some audio data to the output stream.
-     * @param buffer The audio data to write.
-     * @param offsetFrames The frame offset in the buffer for valid data.
-     * @param numFrames The number of frames to write.
-     * @return The number of frames actually written or -1 if an error occurs.
-     */
-    fun write(buffer: FloatArray,
-              offsetFrames: Int,
-              numFrames: Int): Int
 
     /**
      * Get the number of samples in one frame.
@@ -62,9 +66,35 @@ expect class AudioBridge() {
 
     /**
      * Get the number of frames transferred per second.
-     * This may be different than the value passed to open().
+     * This may be different from the requested rate.
      * This is valid after calling open().
      */
     fun getSampleRate(): Int
-
 }
+
+interface AudioOutputBridge : AudioBridge {
+    /**
+     * Write some audio data to the output stream.
+     * @param buffer The audio data to write.
+     * @param offsetFrames The frame offset in the buffer for valid data.
+     * @param numFrames The number of frames to write.
+     * @return The number of frames actually written or -1 if an error occurs.
+     */
+    fun write(buffer: FloatArray,
+              offsetFrames: Int,
+              numFrames: Int): Int
+
+    companion object {
+        /**
+         * Public factory method to create a platform-specific AudioOutputBridge.
+         * Uses a DSL for safe, backward-compatible configuration.
+         */
+        fun create(configure: AudioConfig.Builder.() -> Unit = {}): AudioOutputBridge {
+            val builder = AudioConfig.Builder()
+            builder.configure()
+            return instantiateAudioOutputBridge(builder.build())
+        }
+    }
+}
+
+internal expect fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge

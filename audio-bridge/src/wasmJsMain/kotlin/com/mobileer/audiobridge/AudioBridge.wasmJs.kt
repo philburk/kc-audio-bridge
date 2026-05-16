@@ -26,32 +26,33 @@ external fun startWebAudio()
 external fun stopWebAudio()
 external fun getAudioSampleRate(): Int
 
-actual class AudioBridge actual constructor() {
-    actual fun open(sampleRate: Int): AudioResult {
+internal actual fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge {
+    return WasmAudioOutputBridge(config)
+}
+
+internal class WasmAudioOutputBridge(private val config: AudioConfig) : AudioOutputBridge {
+    override fun open(): AudioResult {
         startWebAudio()
         return AudioResult.OK
     }
 
-    actual fun getSampleRate(): Int {
+    override fun getSampleRate(): Int {
         return getAudioSampleRate()
     }
 
-    actual fun start(): AudioResult {
+    override fun start(): AudioResult {
         return AudioResult.OK
     }
 
-    actual fun getChannelCount(): Int {
+    override fun getChannelCount(): Int {
         return 2  // STEREO
     }
 
-    actual fun getFramesPerBurst(): Int {
+    override fun getFramesPerBurst(): Int {
         return getOutputFramesPerBurst()
     }
 
-    /**
-     * Write some audio data to the output stream.
-     */
-    actual fun write(
+    override fun write(
         buffer: FloatArray,
         offsetFrames: Int,
         numFrames: Int
@@ -74,9 +75,9 @@ actual class AudioBridge actual constructor() {
         return framesToWrite
     }
 
-    actual fun stop() {}
+    override fun stop() {}
 
-    actual fun close() {
+    override fun close() {
         stopWebAudio()
     }
 }
