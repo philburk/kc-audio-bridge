@@ -7,14 +7,14 @@ for a complete example.
 
 Import the AudioBridge classes.
 ```
-import com.mobileer.audiobridge.AudioBridge
+import com.mobileer.audiobridge.AudioOutputBridge
 import com.mobileer.audiobridge.AudioResult
 ```
 
 Create an AudioBridge and open the stream.
 The default will be a stereo stream that uses float samples.
 
-    val audioBridge = AudioBridge()
+    val audioBridge = AudioOutputBridge.create()
     val openResult = audioBridge.open() // stereo, float
 
 After opening the stream you should check to see what sampleRate you are using.
