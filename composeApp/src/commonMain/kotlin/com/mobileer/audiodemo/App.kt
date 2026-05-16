@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.mobileer.audiobridge.AudioBridge
+import com.mobileer.audiobridge.AudioOutputBridge
 import com.mobileer.audiobridge.AudioResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,7 @@ import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
 
-val audioBridge = AudioBridge()
+val audioBridge = AudioOutputBridge.create()
 
 class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
