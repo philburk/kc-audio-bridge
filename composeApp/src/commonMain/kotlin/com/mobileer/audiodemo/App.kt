@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import com.mobileer.audiobridge.AudioBridge
 import com.mobileer.audiobridge.AudioOutputBridge
 import com.mobileer.audiobridge.AudioResult
+import com.mobileer.audiobridge.writeSuspending
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -105,9 +106,6 @@ fun startAudioStreamJob(): Job { // Return the Job
         leftSine.setSampleRate(sampleRate)
         rightSine.setSampleRate(sampleRate)
 
-        // Set time to sleep based on the audio burst size.
-        val burstMillis = 1000L * bufferSizeFrames / sampleRate
-
         try {
             while (isActive) { // Check isActive for cooperative cancellation
                 leftSine.generateBuffer(leftBuffer, bufferSizeFrames)
@@ -119,22 +117,20 @@ fun startAudioStreamJob(): Job { // Return the Job
                     stereoBuffer[i * 2 + 1] = rightBuffer[i] // Right channel
                 }
 
-                var framesLeft = bufferSizeFrames
-                var offset = 0
-                while (framesLeft > 0 && isActive) {
-                    val frameCount = audioBridge.write(stereoBuffer, offset, framesLeft)
-                    if (frameCount < 0) {
-                        // Handle error from audioBridge.write, e.g., stream closed
-                        println("AudioBridge write error: $frameCount")
-                        cancel("AudioBridge write error") // Cancel the coroutine
-                        break
-                    }
-                    offset += frameCount
-                    framesLeft -= frameCount
-                    if (framesLeft > 0 && isActive) {
-                        // Wait long enough for one burst of room to be available.
-                        delay(burstMillis)
-                    }
+                // Write the interleaved buffer, waiting up to 1000ms if needed.
+                val framesWritten = audioBridge.writeSuspending(
+                    stereoBuffer,
+                    0,
+                    bufferSizeFrames,
+                    timeoutMillis = 1000L
+                )
+                if (framesWritten < 0) {
+                    // Handle error from audioBridge.write, e.g., stream closed
+                    println("AudioBridge write error: $framesWritten")
+                    cancel("AudioBridge write error") // Cancel the coroutine
+                    break
+                } else if (framesWritten < bufferSizeFrames) {
+                    println("AudioBridge write timeout")
                 }
             }
         } catch (e: CancellationException) {
@@ -193,7 +189,7 @@ fun App() {
     var isPlaying by remember { mutableStateOf(false) }
 
     Column() {
-        Text("Test audio on ${getPlatform().name}")
+        Text("Test AudioBridge on platform ${getPlatform().name}")
 
         Row {
             Button(

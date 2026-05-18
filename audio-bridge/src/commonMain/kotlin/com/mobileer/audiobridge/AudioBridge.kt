@@ -16,6 +16,11 @@
 
 package com.mobileer.audiobridge
 
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlin.time.TimeSource
+
 enum class AudioResult(val code: Int) {
     OK(0),
     ERROR_INVALID_FORMAT(-100),
@@ -98,3 +103,44 @@ interface AudioOutputBridge : AudioBridge {
 }
 
 internal expect fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge
+
+/**
+ * Suspending extension function for AudioOutputBridge.write().
+ * This provides a coroutine-friendly way to perform blocking writes without tying up an OS thread.
+ *
+ * @param buffer The audio data to write.
+ * @param offsetFrames The frame offset in the buffer.
+ * @param numFrames The number of frames to write.
+ * @param timeoutMillis The maximum time to wait for the write to complete. Default is 0 (non-blocking).
+ * @return The number of frames actually written, or a negative error code.
+ */
+suspend fun AudioOutputBridge.writeSuspending(
+    buffer: FloatArray,
+    offsetFrames: Int,
+    numFrames: Int,
+    timeoutMillis: Long = 0L
+): Int {
+    if (timeoutMillis == 0L) {
+        return write(buffer, offsetFrames, numFrames)
+    }
+
+    val startTime = TimeSource.Monotonic.markNow()
+    var framesLeft = numFrames
+    var offset = offsetFrames
+    val sampleRate = getSampleRate()
+    val burstDelayMs = maxOf(1L, 1000L * getFramesPerBurst() / sampleRate)
+
+    while (framesLeft > 0 && currentCoroutineContext().isActive) {
+        val written = write(buffer, offset, framesLeft)
+        if (written < 0) return written
+
+        offset += written
+        framesLeft -= written
+
+        if (framesLeft > 0) {
+            if (startTime.elapsedNow().inWholeMilliseconds >= timeoutMillis) break
+            delay(burstDelayMs)
+        }
+    }
+    return numFrames - framesLeft
+}
