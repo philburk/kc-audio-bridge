@@ -131,6 +131,8 @@ fun startAudioStreamJob(): Job { // Return the Job
                     break
                 } else if (framesWritten < bufferSizeFrames) {
                     println("AudioBridge write timeout")
+                    cancel("AudioBridge write timeout") // Cancel the coroutine
+                    break
                 }
             }
         } catch (e: CancellationException) {

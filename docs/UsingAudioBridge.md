@@ -24,15 +24,24 @@ Then you can adjust your synthesizer to handle pitch properly.
 
 Run your audio task in a coroutine.
 Start the stream and then render and write the audio in a loop.
-If the frameCount is less than numFrames then you should
-sleep briefly and then try again to write all the audio.
 
     val job = GlobalScope.launch(Dispatchers.Default) {
       val startResult = audioBridge.start()
-      while(isActive()) {
-        renderAudio(stereoBuffer) // your code goes here
-        val frameCount = audioBridge.write(stereoBuffer,
-                                           offsetFrames, numFrames)
+      while(isActive) {
+        renderAudio(stereoBuffer, numFrames) // your synth code goes here
+        // Write your audio data to the output.
+        val framesWritten = audioBridge.writeSuspending(stereoBuffer,
+                                           offsetFrames,
+                                           numFrames,
+                                           timeoutMillis = 1000L)
+
+        if (framesWritten < 0) {
+            cancel("AudioBridge write error") // Cancel the coroutine
+            break
+        } else if (framesWritten < bufferSizeFrames) {
+            cancel("AudioBridge write timeout") // Cancel the coroutine
+            break
+        }
       }
     }
 
@@ -40,3 +49,6 @@ When you are done, cleanup.
 
     audioBridge.stop()
     audioBridge.close()
+
+See [demo App.kt](composeApp/src/commonMain/kotlin/com/mobileer/audiodemo/App.kt)
+for an example.

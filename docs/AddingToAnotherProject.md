@@ -11,7 +11,8 @@ There are two main ways to use the `audio-bridge` library in another project:
 This method involves building the library and publishing it to your local Maven repository (`~/.m2/repository`). This is useful if you want to reuse the compiled library across multiple projects on your machine.
 
 ### 1. Build and Publish
-Run the following command in the `kc-audio-bridge` root directory:
+Download the kc-audio-bridge repository from GitHub to your local machine.
+Then run the following command in the `kc-audio-bridge` root directory:
 ```bash
 ./gradlew :audio-bridge:publishToMavenLocal
 ```
@@ -32,7 +33,45 @@ repositories {
 Then add the dependency to your source sets (e.g., `commonMain`):
 ```kotlin
 commonMain.dependencies {
-    implementation("com.mobileer:audio-bridge:0.1.0")
+    implementation("com.mobileer:audio-bridge:0.3.0")
+}
+```
+### 3. Copy JavaScript resources for local Web testing
+
+## WasmJS Specifics
+
+For **WasmJS** targets, the `audio-bridge` library relies on some external JavaScript files (`kcab-webaudio.js` and `kcab-output-stream.js`) to interface with the Web Audio API.
+See the [KSyn demo](https://github.com/philburk/ksyn/blob/main/demo/build.gradle.kts) for an example.
+
+The following code needs to be added to your app's build.gradle.kts file:
+
+```kotlin
+// Define a task that copies the required JS files from the kc-audio-bridge JAR
+// into the build directory so the development server can find them.
+val copyAudioBridgeJsFiles = tasks.register<Copy>("copyAudioBridgeJsFiles") {
+    // Lazily get the wasmJs runtime classpath configuration.
+    // This avoids resolving it during the configuration phase.
+    val wasmJsRuntime = configurations.named("wasmJsRuntimeClasspath")
+
+    // The 'from' action will now execute later, during the execution phase.
+    // At this point, all dependencies (JARs and projects) are properly resolved.
+    from(wasmJsRuntime.map { configuration ->
+        // We find the specific JAR we need from the resolved files.
+        configuration.files.filter { it.isFile && it.name.startsWith("audio-bridge") }
+            .map { zipTree(it) }
+    }) {
+        // Only include the JS files we absolutely need from the JAR.
+        include("kcab-webaudio.js")
+        include("kcab-output-stream.js")
+    }
+
+    // Set the destination directory for the copied files.
+    into(layout.buildDirectory.dir("processedResources/wasmJs/main"))
+}
+
+// This dependency hook remains the same.
+tasks.named("wasmJsProcessResources") {
+    dependsOn(copyAudioBridgeJsFiles)
 }
 ```
 
@@ -59,26 +98,9 @@ In your project's `build.gradle.kts`:
 ```kotlin
 commonMain.dependencies {
     // Gradle composite build will automatically substitute this with the included build
-    implementation("com.mobileer:audio-bridge:0.2.0")
+    implementation("com.mobileer:audio-bridge:0.3.0")
 }
 ```
 
----
+See the note about "WasmJS Specifics" in Method #1.
 
-## WasmJS Specifics
-
-For **WasmJS** targets, the `audio-bridge` library relies on some external JavaScript files (`kcab-webaudio.js` and `kcab-output-stream.js`) to interface with the Web Audio API.
-
-These files must be available to your application's `index.html` at runtime.
-
-### If using Method 1 or 2:
-You likely need to ensure these files are copied to your distribution folder.
-
-1.  **Locate the files:** They are in `audio-bridge/src/wasmJsMain/resources/`.
-2.  **Copy them:** Configure your build to copy these files to your distribution output (e.g., `build/dist/wasmJs/productionExecutable`), or manually copy them to your project's `src/wasmJsMain/resources`.
-3.  **Update index.html:** Ensure your `index.html` loads the main interface file:
-    ```html
-    <script type="module" src="kcab-webaudio.js"></script>
-    ```
-
-*Note: The `composeApp` demo in this repository demonstrates how to automate this copying in its `build.gradle.kts`.*
