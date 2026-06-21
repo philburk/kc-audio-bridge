@@ -75,6 +75,24 @@ tasks.named("wasmJsProcessResources") {
 }
 ```
 
+### Allow Cross-Origin
+
+The WebAudio implementation of the AudioBridge uses SharedArrayBuffer. That requires a special permission to allow "Cross-Origin" operation.
+To solve this for local testing, add a folder called webpack.config.d to your webApp folder. It should contain a file called "devServerHeaders.js" which contains:
+```
+// Configures webpack-dev-server to send the headers required for SharedArrayBuffer.
+if (config.devServer) {
+    config.devServer.headers = {
+        ...config.devServer.headers,
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Resource-Policy": "same-site",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+    };
+}
+```
+
+An example is [here](https://github.com/philburk/kc-audio-bridge/blob/main/composeApp/webpack.config.d/devServerHeaders.js).
+
 ---
 
 ## Method 2: Git Submodule (Source Integration)
