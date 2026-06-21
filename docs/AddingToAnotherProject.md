@@ -43,7 +43,7 @@ commonMain.dependencies {
 For **WasmJS** targets, the `audio-bridge` library relies on some external JavaScript files (`kcab-webaudio.js` and `kcab-output-stream.js`) to interface with the Web Audio API.
 See the [KSyn demo](https://github.com/philburk/ksyn/blob/main/demo/build.gradle.kts) for an example.
 
-The following code needs to be added to your app's build.gradle.kts file:
+The following code needs to be added to your "webApp/build.gradle.kts" file:
 
 ```kotlin
 // Define a task that copies the required JS files from the kc-audio-bridge JAR
