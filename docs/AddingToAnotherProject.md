@@ -16,7 +16,7 @@ Then run the following command in the `kc-audio-bridge` root directory:
 ```bash
 ./gradlew :audio-bridge:publishToMavenLocal
 ```
-This will publish the artifacts (Android AAR, Desktop JAR, WasmJS Klib, etc.) to your local Maven cache with the group `com.mobileer` for the latest AudioBridge version.
+This will publish the artifacts (Android AAR, Desktop JAR, WasmJS Klib, etc.) to your local Maven cache with the group `com.softsynth` for the latest AudioBridge version.
 
 ### 2. Add Dependency
 In your consumer project's `settings.gradle.kts`, ensure you are not including the module directly.
@@ -33,7 +33,7 @@ repositories {
 Then add the dependency to your source sets (e.g., `commonMain`):
 ```kotlin
 commonMain.dependencies {
-    implementation("com.mobileer:audio-bridge:0.3.0")
+    implementation("com.softsynth:audio-bridge:0.3.0")
 }
 ```
 ### 3. Copy JavaScript resources for local Web testing
@@ -116,7 +116,7 @@ In your project's `build.gradle.kts`:
 ```kotlin
 commonMain.dependencies {
     // Gradle composite build will automatically substitute this with the included build
-    implementation("com.mobileer:audio-bridge:0.3.0")
+    implementation("com.softsynth:audio-bridge:0.3.0")
 }
 ```
 

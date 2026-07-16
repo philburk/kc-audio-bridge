@@ -89,11 +89,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.mobileer.audiodemo"
+    namespace = "com.softsynth.audiodemo"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.mobileer.audiodemo"
+        applicationId = "com.softsynth.audiodemo"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -133,11 +133,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.mobileer.audiodemo.MainKt"
+        mainClass = "com.softsynth.audiodemo.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.mobileer.audiodemo"
+            packageName = "com.softsynth.audiodemo"
             packageVersion = "1.0.0"
         }
     }

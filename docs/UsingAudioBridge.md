@@ -7,8 +7,8 @@ for a complete example.
 
 Import the AudioBridge classes.
 ```
-import com.mobileer.audiobridge.AudioOutputBridge
-import com.mobileer.audiobridge.AudioResult
+import com.softsynth.audiobridge.AudioOutputBridge
+import com.softsynth.audiobridge.AudioResult
 ```
 
 Create an AudioBridge and open the stream.
