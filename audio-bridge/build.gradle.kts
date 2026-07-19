@@ -51,6 +51,7 @@ kotlin {
 
 
         androidMain.dependencies {
+            implementation(libs.androidx.core.ktx)
         }
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)

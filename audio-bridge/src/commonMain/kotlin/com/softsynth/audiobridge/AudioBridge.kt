@@ -29,6 +29,13 @@ enum class AudioResult(val code: Int) {
     ERROR_INTERNAL(-103),
 }
 
+enum class AudioPermissionState {
+    GRANTED,
+    DENIED,
+    UNDETERMINED,
+    NOT_SUPPORTED
+}
+
 class AudioConfig internal constructor(
     val sampleRate: Int,
     val channels: Int,
@@ -131,12 +138,30 @@ interface AudioInputBridge : AudioBridge {
         fun isSupported(): Boolean {
             return isAudioInputSupported()
         }
+
+        /**
+         * Check the current state of audio input permission.
+         * This check is synchronous and non-blocking.
+         */
+        fun getPermissionState(context: Any? = null): AudioPermissionState {
+            return getAudioPermissionState(context)
+        }
+
+        /**
+         * Request audio input permission from the user.
+         * This is a suspending function as prompting the user is asynchronous.
+         */
+        suspend fun requestPermission(context: Any? = null): AudioPermissionState {
+            return requestAudioPermission(context)
+        }
     }
 }
 
 internal expect fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge
 internal expect fun instantiateAudioInputBridge(config: AudioConfig): AudioInputBridge
 internal expect fun isAudioInputSupported(): Boolean
+internal expect fun getAudioPermissionState(context: Any?): AudioPermissionState
+internal expect suspend fun requestAudioPermission(context: Any?): AudioPermissionState
 
 /**
  * Suspending extension function for AudioOutputBridge.write().

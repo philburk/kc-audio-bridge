@@ -60,6 +60,14 @@ internal actual fun isAudioInputSupported(): Boolean {
     return false
 }
 
+internal actual fun getAudioPermissionState(context: Any?): AudioPermissionState {
+    return AudioPermissionState.UNDETERMINED
+}
+
+internal actual suspend fun requestAudioPermission(context: Any?): AudioPermissionState {
+    return AudioPermissionState.UNDETERMINED
+}
+
 internal class StubAudioInputBridge(private val config: AudioConfig) : AudioInputBridge {
     override fun open(): AudioResult {
         return AudioResult.OK
