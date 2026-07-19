@@ -21,6 +21,7 @@ import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.LineUnavailableException
 import javax.sound.sampled.SourceDataLine
+import javax.sound.sampled.TargetDataLine
 
 internal actual fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge {
     return JavaSoundOutputBridge(config)
@@ -122,11 +123,11 @@ internal class JavaSoundOutputBridge(private val config: AudioConfig) : AudioOut
 }
 
 internal actual fun instantiateAudioInputBridge(config: AudioConfig): AudioInputBridge {
-    return StubAudioInputBridge(config)
+    return JavaSoundInputBridge(config)
 }
 
 internal actual fun isAudioInputSupported(): Boolean {
-    return false
+    return true
 }
 
 internal actual fun getAudioPermissionState(context: Any?): AudioPermissionState {
@@ -137,39 +138,100 @@ internal actual suspend fun requestAudioPermission(context: Any?): AudioPermissi
     return AudioPermissionState.GRANTED
 }
 
-internal class StubAudioInputBridge(private val config: AudioConfig) : AudioInputBridge {
+internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInputBridge {
+
+    private var mLine: TargetDataLine? = null
+    private var mSampleRate = config.sampleRate
+    private val mChannelCount = config.channels
+    private var mFormat: AudioFormat? = null
+    private var mByteBuffer: ByteArray? = null
+    private val mAudioFramesPerJavaBuffer = 1024
+
     override fun open(): AudioResult {
-        return AudioResult.OK
+        val bytesPerFrame = mChannelCount * 2 // 16 bit
+        val bufferSize = mAudioFramesPerJavaBuffer * bytesPerFrame
+        mByteBuffer = ByteArray(bufferSize)
+        val bitsPerSample = 16
+        mFormat = AudioFormat(
+            mSampleRate.toFloat(), bitsPerSample,
+            mChannelCount, true, false
+        )
+        val info = DataLine.Info(TargetDataLine::class.java, mFormat)
+        if (!AudioSystem.isLineSupported(info)) {
+            println("TargetDataLine not supported $info")
+            return AudioResult.ERROR_INVALID_FORMAT
+        }
+        return try {
+            mLine = AudioSystem.getLine(info) as TargetDataLine
+            mLine!!.open(mFormat, bufferSize)
+            AudioResult.OK
+        } catch (e: LineUnavailableException) {
+            println("LineUnavailableException $e")
+            AudioResult.ERROR_UNAVAILABLE
+        }
     }
 
     override fun start(): AudioResult {
+        val line = mLine ?: return AudioResult.ERROR_INVALID_STATE
+        line.start()
         return AudioResult.OK
     }
 
+    override fun read(buffer: FloatArray,
+                     offsetFrames: Int,
+                     numFrames: Int): Int {
+        val line = mLine ?: return -1
+        if (!line.isOpen) {
+            return -1
+        }
+        var framesToRead = numFrames
+        var numSamplesToProcess = numFrames * mChannelCount
+
+        val byteBuffer = mByteBuffer ?: return -1
+        if (numSamplesToProcess * 2 > byteBuffer.size) {
+            numSamplesToProcess = byteBuffer.size / 2
+            framesToRead = numSamplesToProcess / mChannelCount
+        }
+
+        val bytesRead = line.read(byteBuffer, 0, framesToRead * mChannelCount * 2)
+        if (bytesRead < 0) {
+            return -1
+        }
+
+        val samplesRead = bytesRead / 2
+        val startSample = offsetFrames * mChannelCount
+        var byteIndex = 0
+        for (i in 0 until samplesRead) {
+            val low = byteBuffer[byteIndex++].toInt() and 0xFF
+            val high = byteBuffer[byteIndex++].toInt()
+            val sampleVal = ((high shl 8) or low).toShort()
+            buffer[startSample + i] = sampleVal / 32768.0f
+        }
+
+        return samplesRead / mChannelCount
+    }
+
     override fun stop() {
+        mLine?.stop()
+        mLine?.flush()
     }
 
     override fun close() {
+        stop()
+        mLine?.close()
+        mLine = null
+        mByteBuffer = null
+    }
+
+    override fun getSampleRate(): Int {
+        return mSampleRate
     }
 
     override fun getChannelCount(): Int {
-        return config.channels
+        return mChannelCount
     }
 
     override fun getFramesPerBurst(): Int {
         return config.framesPerBuffer
-    }
-
-    override fun getSampleRate(): Int {
-        return config.sampleRate
-    }
-
-    override fun read(buffer: FloatArray, offsetFrames: Int, numFrames: Int): Int {
-        val start = offsetFrames * config.channels
-        val end = (offsetFrames + numFrames) * config.channels
-        if (start in buffer.indices && end <= buffer.size) {
-            buffer.fill(0.0f, start, end)
-        }
-        return numFrames
     }
 }
