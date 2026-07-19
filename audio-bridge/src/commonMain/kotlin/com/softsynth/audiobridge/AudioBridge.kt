@@ -102,7 +102,41 @@ interface AudioOutputBridge : AudioBridge {
     }
 }
 
+interface AudioInputBridge : AudioBridge {
+    /**
+     * Read some audio data from the input stream.
+     * @param buffer The audio data buffer to read into.
+     * @param offsetFrames The frame offset in the buffer for writing valid data.
+     * @param numFrames The number of frames to read.
+     * @return The number of frames actually read or -1 if an error occurs.
+     */
+    fun read(buffer: FloatArray,
+             offsetFrames: Int,
+             numFrames: Int): Int
+
+    companion object {
+        /**
+         * Public factory method to create a platform-specific AudioInputBridge.
+         * Uses a DSL for safe, backward-compatible configuration.
+         */
+        fun create(configure: AudioConfig.Builder.() -> Unit = {}): AudioInputBridge {
+            val builder = AudioConfig.Builder()
+            builder.configure()
+            return instantiateAudioInputBridge(builder.build())
+        }
+
+        /**
+         * Query whether audio input is supported on the current platform.
+         */
+        fun isSupported(): Boolean {
+            return isAudioInputSupported()
+        }
+    }
+}
+
 internal expect fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge
+internal expect fun instantiateAudioInputBridge(config: AudioConfig): AudioInputBridge
+internal expect fun isAudioInputSupported(): Boolean
 
 /**
  * Suspending extension function for AudioOutputBridge.write().
@@ -144,3 +178,45 @@ suspend fun AudioOutputBridge.writeSuspending(
     }
     return numFrames - framesLeft
 }
+
+/**
+ * Suspending extension function for AudioInputBridge.read().
+ * This provides a coroutine-friendly way to perform blocking reads without tying up an OS thread.
+ *
+ * @param buffer The audio data buffer to read into.
+ * @param offsetFrames The frame offset in the buffer.
+ * @param numFrames The number of frames to read.
+ * @param timeoutMillis The maximum time to wait for the read to complete. Default is 0 (non-blocking).
+ * @return The number of frames actually read, or a negative error code.
+ */
+suspend fun AudioInputBridge.readSuspending(
+    buffer: FloatArray,
+    offsetFrames: Int,
+    numFrames: Int,
+    timeoutMillis: Long = 0L
+): Int {
+    if (timeoutMillis == 0L) {
+        return read(buffer, offsetFrames, numFrames)
+    }
+
+    val startTime = TimeSource.Monotonic.markNow()
+    var framesLeft = numFrames
+    var offset = offsetFrames
+    val sampleRate = getSampleRate()
+    val burstDelayMs = maxOf(1L, 1000L * getFramesPerBurst() / sampleRate)
+
+    while (framesLeft > 0 && currentCoroutineContext().isActive) {
+        val read = read(buffer, offset, framesLeft)
+        if (read < 0) return read
+
+        offset += read
+        framesLeft -= read
+
+        if (framesLeft > 0) {
+            if (startTime.elapsedNow().inWholeMilliseconds >= timeoutMillis) break
+            delay(burstDelayMs)
+        }
+    }
+    return numFrames - framesLeft
+}
+
