@@ -51,7 +51,9 @@ import kotlin.math.min
 import kotlin.math.sin
 
 val audioBridge = AudioOutputBridge.create()
-val audioInputBridge = AudioInputBridge.create()
+val audioInputBridge = AudioInputBridge.create {
+    channels = 1
+}
 
 class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
@@ -300,11 +302,11 @@ fun App() {
                                 val sampleRate = audioInputBridge.getSampleRate()
                                 val burstSize = audioInputBridge.getFramesPerBurst()
                                 val maxFrames = sampleRate * 10
-                                val buffer = FloatArray(maxFrames * 2)
+                                val buffer = FloatArray(maxFrames)
                                 recordedAudioData = buffer
                                 totalRecordedFrames = 0
 
-                                val tempBuffer = FloatArray(burstSize * 2)
+                                val tempBuffer = FloatArray(burstSize)
 
                                 try {
                                     while (totalRecordedFrames < maxFrames && isActive) {
@@ -320,17 +322,17 @@ fun App() {
 
                                         tempBuffer.copyInto(
                                             buffer,
-                                            destinationOffset = totalRecordedFrames * 2,
+                                            destinationOffset = totalRecordedFrames,
                                             startIndex = 0,
-                                            endIndex = read * 2
+                                            endIndex = read
                                         )
                                         totalRecordedFrames += read
 
                                         var sum = 0.0f
-                                        for (i in 0 until (read * 2)) {
+                                        for (i in 0 until read) {
                                             sum += kotlin.math.abs(tempBuffer[i])
                                         }
-                                        val avg = if (read > 0) sum / (read * 2) else 0.0f
+                                        val avg = if (read > 0) sum / read else 0.0f
 
                                         framesRecorded = totalRecordedFrames
                                         averageInputLevel = avg
@@ -406,12 +408,11 @@ fun App() {
                                 try {
                                     while (playOffset < totalFrames && isActive) {
                                         val framesToWrite = min(burstSize, totalFrames - playOffset)
-                                        data.copyInto(
-                                            tempBuffer,
-                                            destinationOffset = 0,
-                                            startIndex = playOffset * 2,
-                                            endIndex = (playOffset + framesToWrite) * 2
-                                        )
+                                        for (i in 0 until framesToWrite) {
+                                            val sample = data[playOffset + i]
+                                            tempBuffer[i * 2] = sample
+                                            tempBuffer[i * 2 + 1] = sample
+                                        }
                                         val written = audioBridge.writeSuspending(tempBuffer, 0, framesToWrite, timeoutMillis = 1000L)
                                         if (written < 0) {
                                             println("AudioBridge write error: $written")
