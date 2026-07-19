@@ -50,6 +50,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        com.softsynth.audiobridge.AudioBridgeAndroid.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
 }
 
 @Preview

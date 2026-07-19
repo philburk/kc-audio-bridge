@@ -28,8 +28,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.softsynth.audiobridge.AudioBridge
 import com.softsynth.audiobridge.AudioOutputBridge
+import com.softsynth.audiobridge.AudioInputBridge
+import com.softsynth.audiobridge.AudioPermissionState
 import com.softsynth.audiobridge.AudioResult
 import com.softsynth.audiobridge.writeSuspending
+import com.softsynth.audiobridge.readSuspending
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -43,6 +51,7 @@ import kotlin.math.min
 import kotlin.math.sin
 
 val audioBridge = AudioOutputBridge.create()
+val audioInputBridge = AudioInputBridge.create()
 
 class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
@@ -186,25 +195,42 @@ fun stopAudioDemo() {
 }
 
 // App.kt
+private var recordingJob: Job? = null
+private var playbackJob: Job? = null
+private var recordedAudioData: FloatArray? = null
+private var totalRecordedFrames = 0
+
 @Composable
 fun App() {
     var isPlaying by remember { mutableStateOf(false) }
+    val context = getPlatformContext()
+    val scope = rememberCoroutineScope()
 
-    Column() {
+    val audioInputSupported = remember { AudioInputBridge.isSupported() }
+    var isRecording by remember { mutableStateOf(false) }
+    var isPlayingRecording by remember { mutableStateOf(false) }
+    var framesRecorded by remember { mutableStateOf(0) }
+    var averageInputLevel by remember { mutableStateOf(0.0f) }
+    var hasRecordingData by remember { mutableStateOf(false) }
+    var permissionStatusMessage by remember { mutableStateOf("") }
+
+    Column {
         Text("Test AudioBridge on platform ${getPlatform().name}")
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("Audio Output (Sine Wave Demo)", style = androidx.compose.ui.text.TextStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
         Row {
             Button(
                 onClick = {
                     val result = startAudioDemo()
                     if (result != AudioResult.OK) {
                         println("Failed to open audio bridge: $result")
-                        // Handle error, maybe show a message to the user
                         return@Button
                     }
                     isPlaying = true
                 },
-                enabled = !isPlaying
+                enabled = !isPlaying && !isRecording && !isPlayingRecording
             ) {
                 Text("START")
             }
@@ -219,15 +245,226 @@ fun App() {
                 Text("STOP")
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("Audio Input (Record & Playback Demo)", style = androidx.compose.ui.text.TextStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+
+        if (!audioInputSupported) {
+            Text("Audio Input is not supported on this platform.", color = androidx.compose.ui.graphics.Color.Red)
+        } else {
+            Row {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            permissionStatusMessage = ""
+                            var state = AudioInputBridge.getPermissionState(context)
+                            if (state != AudioPermissionState.GRANTED) {
+                                permissionStatusMessage = "Requesting permission..."
+                                state = AudioInputBridge.requestPermission(context)
+                                if (state != AudioPermissionState.GRANTED) {
+                                    permissionStatusMessage = "Permission denied."
+                                    return@launch
+                                }
+                            }
+                            permissionStatusMessage = "Permission granted."
+
+                            if (isPlaying) {
+                                stopAudioDemo()
+                                isPlaying = false
+                            }
+
+                            recordingJob?.cancel()
+                            playbackJob?.cancel()
+
+                            isRecording = true
+                            framesRecorded = 0
+                            averageInputLevel = 0.0f
+                            hasRecordingData = false
+
+                            recordingJob = launch(Dispatchers.Default) {
+                                val openResult = audioInputBridge.open()
+                                if (openResult != AudioResult.OK) {
+                                    println("Failed to open audio input: $openResult")
+                                    isRecording = false
+                                    return@launch
+                                }
+                                val startResult = audioInputBridge.start()
+                                if (startResult != AudioResult.OK) {
+                                    println("Failed to start audio input: $startResult")
+                                    audioInputBridge.close()
+                                    isRecording = false
+                                    return@launch
+                                }
+
+                                val sampleRate = audioInputBridge.getSampleRate()
+                                val burstSize = audioInputBridge.getFramesPerBurst()
+                                val maxFrames = sampleRate * 10
+                                val buffer = FloatArray(maxFrames * 2)
+                                recordedAudioData = buffer
+                                totalRecordedFrames = 0
+
+                                val tempBuffer = FloatArray(burstSize * 2)
+
+                                try {
+                                    while (totalRecordedFrames < maxFrames && isActive) {
+                                        val framesToRead = min(burstSize, maxFrames - totalRecordedFrames)
+                                        val read = audioInputBridge.readSuspending(tempBuffer, 0, framesToRead, timeoutMillis = 1000L)
+                                        if (read < 0) {
+                                            println("AudioInputBridge read error: $read")
+                                            break
+                                        } else if (read == 0) {
+                                            delay(10)
+                                            continue
+                                        }
+
+                                        tempBuffer.copyInto(
+                                            buffer,
+                                            destinationOffset = totalRecordedFrames * 2,
+                                            startIndex = 0,
+                                            endIndex = read * 2
+                                        )
+                                        totalRecordedFrames += read
+
+                                        var sum = 0.0f
+                                        for (i in 0 until (read * 2)) {
+                                            sum += kotlin.math.abs(tempBuffer[i])
+                                        }
+                                        val avg = if (read > 0) sum / (read * 2) else 0.0f
+
+                                        framesRecorded = totalRecordedFrames
+                                        averageInputLevel = avg
+                                    }
+                                } finally {
+                                    audioInputBridge.stop()
+                                    audioInputBridge.close()
+                                    isRecording = false
+                                    if (totalRecordedFrames > 0) {
+                                        hasRecordingData = true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isRecording && !isPlayingRecording && !isPlaying
+                ) {
+                    Text("RECORD")
+                }
+
+                Button(
+                    onClick = {
+                        if (isRecording) {
+                            recordingJob?.cancel()
+                            recordingJob = null
+                        }
+                        if (isPlayingRecording) {
+                            playbackJob?.cancel()
+                            playbackJob = null
+                        }
+                    },
+                    enabled = isRecording || isPlayingRecording
+                ) {
+                    Text("STOP")
+                }
+
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (!hasRecordingData || recordedAudioData == null) return@launch
+
+                            if (isPlaying) {
+                                stopAudioDemo()
+                                isPlaying = false
+                            }
+
+                            recordingJob?.cancel()
+                            playbackJob?.cancel()
+
+                            isPlayingRecording = true
+
+                            playbackJob = launch(Dispatchers.Default) {
+                                val openResult = audioBridge.open()
+                                if (openResult != AudioResult.OK) {
+                                    println("Failed to open audio output: $openResult")
+                                    isPlayingRecording = false
+                                    return@launch
+                                }
+                                val startResult = audioBridge.start()
+                                if (startResult != AudioResult.OK) {
+                                    println("Failed to start audio output: $startResult")
+                                    audioBridge.close()
+                                    isPlayingRecording = false
+                                    return@launch
+                                }
+
+                                val burstSize = audioBridge.getFramesPerBurst()
+                                val data = recordedAudioData ?: return@launch
+                                val totalFrames = totalRecordedFrames
+                                var playOffset = 0
+                                val tempBuffer = FloatArray(burstSize * 2)
+
+                                try {
+                                    while (playOffset < totalFrames && isActive) {
+                                        val framesToWrite = min(burstSize, totalFrames - playOffset)
+                                        data.copyInto(
+                                            tempBuffer,
+                                            destinationOffset = 0,
+                                            startIndex = playOffset * 2,
+                                            endIndex = (playOffset + framesToWrite) * 2
+                                        )
+                                        val written = audioBridge.writeSuspending(tempBuffer, 0, framesToWrite, timeoutMillis = 1000L)
+                                        if (written < 0) {
+                                            println("AudioBridge write error: $written")
+                                            break
+                                        } else if (written == 0) {
+                                            delay(10)
+                                            continue
+                                        }
+                                        playOffset += written
+                                    }
+                                } finally {
+                                    audioBridge.stop()
+                                    audioBridge.close()
+                                    isPlayingRecording = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = hasRecordingData && !isRecording && !isPlayingRecording && !isPlaying
+                ) {
+                    Text("PLAY")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (isRecording) {
+                Text("Status: Recording...")
+            } else if (isPlayingRecording) {
+                Text("Status: Playing recording...")
+            } else {
+                Text("Status: Idle")
+            }
+
+            Text("Frames Recorded: $framesRecorded")
+            val roundedLevel = ((averageInputLevel * 1000).toInt() / 1000.0f)
+            Text("Average Input Level: $roundedLevel")
+            if (permissionStatusMessage.isNotEmpty()) {
+                Text("Permission: $permissionStatusMessage")
+            }
+        }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            // Cleanup when the Composable leaves the composition
-            println("App Composable disposing. Stopping audio stream job and closing audio bridge.")
+            println("App Composable disposing. Stopping jobs and closing audio bridges.")
             stopAudioStreamJob()
-            audioBridge.stop() // Ensure bridge is stopped
-            audioBridge.close() // Ensure bridge is closed
+            recordingJob?.cancel()
+            playbackJob?.cancel()
+            audioBridge.stop()
+            audioBridge.close()
+            audioInputBridge.stop()
+            audioInputBridge.close()
         }
     }
 }

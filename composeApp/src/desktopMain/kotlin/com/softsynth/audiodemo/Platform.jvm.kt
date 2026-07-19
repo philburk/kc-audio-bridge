@@ -16,10 +16,15 @@
 
 package com.softsynth.audiodemo
 
-import com.softsynth.audiodemo.Platform
+import androidx.compose.runtime.Composable
 
 class JVMPlatform: Platform {
     override val name: String = "Java ${System.getProperty("java.version")}"
 }
 
 actual fun getPlatform(): Platform = JVMPlatform()
+
+@Composable
+actual fun getPlatformContext(): Any? {
+    return null
+}
