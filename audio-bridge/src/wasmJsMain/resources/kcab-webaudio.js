@@ -133,7 +133,7 @@ function setAudioPair(framesWritten, left, right) {
     }
 }
 
-async function startWebAudio(deviceIdHash = -1) {
+function startWebAudio(deviceIdHash = -1) {
     if (!window.crossOriginIsolated
             && window.location.hostname !== "localhost"
             && window.location.hostname !== "127.0.0.1") {
@@ -159,24 +159,7 @@ async function startWebAudio(deviceIdHash = -1) {
         activeSharedIntArray[INDEX_CAPACITY] = capacityInFrames;
         activeSharedIntArray[INDEX_FRAMES_UNDERFLOWED] = 0;
 
-        await audioContext.audioWorklet.addModule('kcab-output-stream.js');
-        outputWorkletNode = new AudioWorkletNode(audioContext,
-                'output-stream', {
-                numberOfInputs: 0,
-                numberOfOutputs: 1,
-                outputChannelCount: [STEREO],
-                processorOptions: {
-                    floatSharedBuffer: activeFloatSharedBuffer,
-                    intSharedBuffer: activeIntSharedBuffer
-                }
-        });
-        outputWorkletNode.connect(audioContext.destination);
-
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-
-        // Output device routing
+        // Resolve output device name synchronously
         activeOutputDeviceName = "Default Output";
         if (deviceIdHash !== -1) {
             const matchedId = findWasmDeviceIdFromHash("audiooutput", deviceIdHash);
@@ -184,9 +167,6 @@ async function startWebAudio(deviceIdHash = -1) {
                 const device = wasmDeviceList.find(d => d.kind === "audiooutput" && d.id === matchedId);
                 if (device) {
                     activeOutputDeviceName = device.label;
-                }
-                if (typeof audioContext.setSinkId === 'function') {
-                    await audioContext.setSinkId(matchedId);
                 }
             }
         } else {
@@ -200,7 +180,46 @@ async function startWebAudio(deviceIdHash = -1) {
                 }
             }
         }
-        console.log("startWebAudio: output node connected successfully.");
+
+        audioContext.audioWorklet.addModule('kcab-output-stream.js').then(() => {
+            outputWorkletNode = new AudioWorkletNode(audioContext,
+                    'output-stream', {
+                    numberOfInputs: 0,
+                    numberOfOutputs: 1,
+                    outputChannelCount: [STEREO],
+                    processorOptions: {
+                        floatSharedBuffer: activeFloatSharedBuffer,
+                        intSharedBuffer: activeIntSharedBuffer
+                    }
+            });
+            outputWorkletNode.connect(audioContext.destination);
+
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            // Output device routing
+            if (deviceIdHash !== -1 && typeof audioContext.setSinkId === 'function') {
+                const matchedId = findWasmDeviceIdFromHash("audiooutput", deviceIdHash);
+                console.log("startWebAudio: output routing deviceIdHash =", deviceIdHash, "matchedId =", matchedId);
+                if (matchedId) {
+                    audioContext.setSinkId(matchedId).then(() => {
+                        console.log("startWebAudio: setSinkId succeeded for", matchedId);
+                        if (audioContext.state === 'suspended') {
+                            return audioContext.resume();
+                        }
+                    }).then(() => {
+                        console.log("startWebAudio: AudioContext state after setSinkId:", audioContext.state);
+                    }).catch(err => {
+                        console.error("Error setting output sinkId:", err);
+                    });
+                }
+            }
+            console.log("startWebAudio: output node connected successfully.");
+        }).catch(err => {
+            console.error("Error adding module or starting output node:", err);
+        });
+
     } catch (error) {
         console.error('Error setting up AudioWorklet for CustomOutputStream:', error);
     }
@@ -272,7 +291,7 @@ function getAudioInputSample(framesRead, channel) {
     return 0.0;
 }
 
-async function startWebAudioInput(deviceIdHash = -1) {
+function startWebAudioInput(deviceIdHash = -1) {
     try {
         if (!audioContext) {
             audioContext = new AudioContext();
@@ -293,6 +312,28 @@ async function startWebAudioInput(deviceIdHash = -1) {
         activeInputSharedIntArray[INDEX_CAPACITY] = inputCapacityInFrames;
         activeInputSharedIntArray[INDEX_FRAMES_UNDERFLOWED] = 0;
 
+        // Resolve input device name synchronously
+        activeInputDeviceName = "Default Input";
+        if (deviceIdHash !== -1) {
+            const matchedId = findWasmDeviceIdFromHash("audioinput", deviceIdHash);
+            if (matchedId) {
+                const device = wasmDeviceList.find(d => d.kind === "audioinput" && d.id === matchedId);
+                if (device) {
+                    activeInputDeviceName = device.label;
+                }
+            }
+        } else {
+            const defaultDevice = wasmDeviceList.find(d => d.kind === "audioinput" && (d.id === "default" || d.id === ""));
+            if (defaultDevice) {
+                activeInputDeviceName = defaultDevice.label;
+            } else {
+                const firstDevice = wasmDeviceList.find(d => d.kind === "audioinput");
+                if (firstDevice) {
+                    activeInputDeviceName = firstDevice.label;
+                }
+            }
+        }
+
         const constraints = {
             audio: {
                 echoCancellation: false,
@@ -308,29 +349,40 @@ async function startWebAudioInput(deviceIdHash = -1) {
             }
         }
 
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const track = mediaStream.getAudioTracks()[0];
-        activeInputDeviceName = track ? track.label : "Default Input";
-        await audioContext.audioWorklet.addModule('kcab-input-stream.js');
-        mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
-
-        inputWorkletNode = new AudioWorkletNode(audioContext, 'input-stream', {
-            numberOfInputs: 1,
-            numberOfOutputs: 0,
-            processorOptions: {
-                floatSharedBuffer: activeInputFloatSharedBuffer,
-                intSharedBuffer: activeInputIntSharedBuffer,
-                channels: INPUT_CHANNELS
+        navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+            mediaStream = stream;
+            const track = mediaStream.getAudioTracks()[0];
+            if (track) {
+                activeInputDeviceName = track.label;
             }
+
+            audioContext.audioWorklet.addModule('kcab-input-stream.js').then(() => {
+                mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
+
+                inputWorkletNode = new AudioWorkletNode(audioContext, 'input-stream', {
+                    numberOfInputs: 1,
+                    numberOfOutputs: 0,
+                    processorOptions: {
+                        floatSharedBuffer: activeInputFloatSharedBuffer,
+                        intSharedBuffer: activeInputIntSharedBuffer,
+                        channels: INPUT_CHANNELS
+                    }
+                });
+
+                mediaStreamSource.connect(inputWorkletNode);
+
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                console.log("startWebAudioInput: input node connected successfully.");
+            }).catch(err => {
+                console.error("Error setting up input AudioWorklet:", err);
+            });
+        }).catch(err => {
+            console.error("Error getting user media stream:", err);
         });
 
-        mediaStreamSource.connect(inputWorkletNode);
-
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-
-        console.log("startWebAudioInput: input node connected successfully.");
         return 0; // OK
     } catch (error) {
         console.error('Error starting Web Audio Input:', error);
