@@ -57,7 +57,13 @@ internal class JavaSoundOutputBridge(private val config: AudioConfig) : AudioOut
                 mDeviceName = mixer.mixerInfo.name
                 mixer.getLine(info) as SourceDataLine
             } else {
-                mDeviceName = "Default Output"
+                val defaultMixer = try { javax.sound.sampled.AudioSystem.getMixer(null) } catch (e: Exception) { null }
+                val fallbackName = defaultMixer?.mixerInfo?.name ?: "Default Output"
+                mDeviceName = if (System.getProperty("os.name").lowercase().contains("mac")) {
+                    getDefaultDeviceNameMac(isInput = false) ?: fallbackName
+                } else {
+                    fallbackName
+                }
                 AudioSystem.getLine(info) as SourceDataLine
             }
             mLine!!.open(mFormat, bufferSize)
@@ -184,7 +190,13 @@ internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInpu
                 mDeviceName = mixer.mixerInfo.name
                 mixer.getLine(info) as TargetDataLine
             } else {
-                mDeviceName = "Default Input"
+                val defaultMixer = try { javax.sound.sampled.AudioSystem.getMixer(null) } catch (e: Exception) { null }
+                val fallbackName = defaultMixer?.mixerInfo?.name ?: "Default Input"
+                mDeviceName = if (System.getProperty("os.name").lowercase().contains("mac")) {
+                    getDefaultDeviceNameMac(isInput = true) ?: fallbackName
+                } else {
+                    fallbackName
+                }
                 AudioSystem.getLine(info) as TargetDataLine
             }
             mLine!!.open(mFormat, bufferSize)
@@ -319,5 +331,29 @@ private fun getJavaSoundDevicesFlow(isInput: Boolean): kotlinx.coroutines.flow.F
             emit(current)
         }
         delay(2000)
+    }
+}
+
+private fun getDefaultDeviceNameMac(isInput: Boolean): String? {
+    return try {
+        val process = ProcessBuilder("system_profiler", "SPAudioDataType").start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        val lines = output.lines()
+        var currentDevice: String? = null
+        val targetKey = if (isInput) "Default Input Device: Yes" else "Default Output Device: Yes"
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.endsWith(":")) {
+                val name = trimmed.removeSuffix(":").trim()
+                if (name.isNotEmpty() && name != "Devices" && name != "Audio") {
+                    currentDevice = name
+                }
+            } else if (trimmed == targetKey) {
+                return currentDevice
+            }
+        }
+        null
+    } catch (e: Exception) {
+        null
     }
 }

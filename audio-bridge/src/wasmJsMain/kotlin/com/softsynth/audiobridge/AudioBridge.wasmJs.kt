@@ -49,6 +49,12 @@ external fun getWasmAudioPermissionState(): JsString
 @JsFun("() => window.requestWasmAudioPermission()")
 external fun requestWasmAudioPermission(): Promise<JsString>
 
+@JsFun("() => window.getWasmCurrentOutputDeviceName()")
+external fun getWasmCurrentOutputDeviceName(): JsString
+
+@JsFun("() => window.getWasmCurrentInputDeviceName()")
+external fun getWasmCurrentInputDeviceName(): JsString
+
 internal actual fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge {
     return WasmAudioOutputBridge(config)
 }
@@ -105,7 +111,7 @@ internal class WasmAudioOutputBridge(private val config: AudioConfig) : AudioOut
     }
 
     override fun getCurrentDeviceName(): String {
-        return "Default Output"
+        return getWasmCurrentOutputDeviceName().toString()
     }
 }
 
@@ -219,7 +225,7 @@ internal class WasmAudioInputBridge(private val config: AudioConfig) : AudioInpu
     }
 
     override fun getCurrentDeviceName(): String {
-        return "Default Input"
+        return getWasmCurrentInputDeviceName().toString()
     }
 
     override fun read(buffer: FloatArray, offsetFrames: Int, numFrames: Int): Int {

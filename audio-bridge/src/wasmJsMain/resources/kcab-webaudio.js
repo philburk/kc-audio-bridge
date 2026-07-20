@@ -18,6 +18,8 @@
 
 let audioContext;
 let outputWorkletNode;
+let activeOutputDeviceName = "Default Output";
+let activeInputDeviceName = "Default Input";
 
 const STEREO = 2;
 
@@ -175,10 +177,27 @@ async function startWebAudio(deviceIdHash = -1) {
         }
 
         // Output device routing
-        if (deviceIdHash !== -1 && typeof audioContext.setSinkId === 'function') {
+        activeOutputDeviceName = "Default Output";
+        if (deviceIdHash !== -1) {
             const matchedId = findWasmDeviceIdFromHash("audiooutput", deviceIdHash);
             if (matchedId) {
-                await audioContext.setSinkId(matchedId);
+                const device = wasmDeviceList.find(d => d.kind === "audiooutput" && d.id === matchedId);
+                if (device) {
+                    activeOutputDeviceName = device.label;
+                }
+                if (typeof audioContext.setSinkId === 'function') {
+                    await audioContext.setSinkId(matchedId);
+                }
+            }
+        } else {
+            const defaultDevice = wasmDeviceList.find(d => d.kind === "audiooutput" && (d.id === "default" || d.id === ""));
+            if (defaultDevice) {
+                activeOutputDeviceName = defaultDevice.label;
+            } else {
+                const firstDevice = wasmDeviceList.find(d => d.kind === "audiooutput");
+                if (firstDevice) {
+                    activeOutputDeviceName = firstDevice.label;
+                }
             }
         }
         console.log("startWebAudio: output node connected successfully.");
@@ -188,6 +207,7 @@ async function startWebAudio(deviceIdHash = -1) {
 }
 
 async function stopWebAudio() {
+    activeOutputDeviceName = "None";
     if (audioContext) {
         if (outputWorkletNode) {
             try {
@@ -289,6 +309,8 @@ async function startWebAudioInput(deviceIdHash = -1) {
         }
 
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const track = mediaStream.getAudioTracks()[0];
+        activeInputDeviceName = track ? track.label : "Default Input";
         await audioContext.audioWorklet.addModule('kcab-input-stream.js');
         mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
 
@@ -317,6 +339,7 @@ async function startWebAudioInput(deviceIdHash = -1) {
 }
 
 async function stopWebAudioInput() {
+    activeInputDeviceName = "None";
     try {
         if (inputWorkletNode) {
             try {
@@ -365,6 +388,14 @@ async function requestWasmAudioPermission() {
     }
 }
 
+function getWasmCurrentOutputDeviceName() {
+    return activeOutputDeviceName;
+}
+
+function getWasmCurrentInputDeviceName() {
+    return activeInputDeviceName;
+}
+
 window.startWebAudio = startWebAudio;
 window.getWasmDevicesCount = getWasmDevicesCount;
 window.getWasmDeviceName = getWasmDeviceName;
@@ -388,3 +419,5 @@ window.getOutputFramesRead = getOutputFramesRead;
 window.getOutputFramesPerBurst = getOutputFramesPerBurst;
 window.getOutputCapacityInFrames = getOutputCapacityInFrames;
 window.setOutputFramesWritten = setOutputFramesWritten;
+window.getWasmCurrentOutputDeviceName = getWasmCurrentOutputDeviceName;
+window.getWasmCurrentInputDeviceName = getWasmCurrentInputDeviceName;

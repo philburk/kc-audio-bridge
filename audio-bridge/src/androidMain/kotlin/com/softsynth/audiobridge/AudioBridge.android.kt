@@ -130,7 +130,11 @@ internal class AudioTrackOutputBridge(private val config: AudioConfig) : AudioOu
 
     override fun getCurrentDeviceName(): String {
         val routed = mAudioTrack?.routedDevice
-        return routed?.productName?.toString() ?: "Default Output"
+        return routed?.let {
+            val baseName = it.productName.toString().takeIf { name -> name.isNotEmpty() } ?: "Device"
+            val typeName = getDeviceTypeName(it.type)
+            "$baseName ($typeName)"
+        } ?: "Default Output"
     }
 }
 
@@ -249,7 +253,11 @@ internal class AudioRecordInputBridge(private val config: AudioConfig) : AudioIn
 
     override fun getCurrentDeviceName(): String {
         val routed = mAudioRecord?.routedDevice
-        return routed?.productName?.toString() ?: "Default Input"
+        return routed?.let {
+            val baseName = it.productName.toString().takeIf { name -> name.isNotEmpty() } ?: "Device"
+            val typeName = getDeviceTypeName(it.type)
+            "$baseName ($typeName)"
+        } ?: "Default Input"
     }
 }
 
