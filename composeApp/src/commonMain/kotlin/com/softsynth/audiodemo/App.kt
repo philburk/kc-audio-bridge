@@ -52,7 +52,8 @@ fun App() {
     // Global run states to coordinate UI interaction across demos
     var isSineWaveRunning by remember { mutableStateOf(false) }
     var isRecordPlayRunning by remember { mutableStateOf(false) }
-    val isAnyRunning = isSineWaveRunning || isRecordPlayRunning
+    var isDuplexRunning by remember { mutableStateOf(false) }
+    val isAnyRunning = isSineWaveRunning || isRecordPlayRunning || isDuplexRunning
 
     Column {
         Text("Test AudioBridge on platform ${getPlatform().name}")
@@ -182,6 +183,16 @@ fun App() {
             selectedOutputId = selectedOutputId,
             isEnabled = !isAnyRunning || isRecordPlayRunning,
             onStateChanged = { isRecordPlayRunning = it }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 3. Full Duplex Audio Demo Component
+        FullDuplexDemo(
+            selectedInputId = selectedInputId,
+            selectedOutputId = selectedOutputId,
+            isEnabled = !isAnyRunning || isDuplexRunning,
+            onStateChanged = { isDuplexRunning = it }
         )
     }
 }
