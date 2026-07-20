@@ -51,6 +51,17 @@ fun DeviceSelector() {
 }
 ```
 
+## Querying Optimal Latency Parameters
+
+For optimal low-latency rendering and to minimize OS scheduling jitter and hardware resampling, you can query the system's recommended sample rate and buffer size (in frames):
+
+```kotlin
+val optimalSampleRate = AudioDeviceManager.getOptimalSampleRate()      // e.g. 48000
+val optimalFramesPerBuffer = AudioDeviceManager.getOptimalFramesPerBuffer() // e.g. 512
+```
+
+These values can be passed directly when creating input or output bridges.
+
 ## Opening a Stream with a Custom Device
 
 When creating an output or input bridge, you can pass the selected device's `id`. Passing `-1` instructs the bridge to route through the system's default device.

@@ -179,10 +179,15 @@ internal expect fun getAudioPermissionState(context: Any?): AudioPermissionState
 internal expect suspend fun requestAudioPermission(context: Any?): AudioPermissionState
 internal expect fun getOutputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>>
 internal expect fun getInputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>>
+internal expect fun getOptimalFramesPerBufferPlatform(): Int
+internal expect fun getOptimalSampleRatePlatform(): Int
 
 object AudioDeviceManager {
     val outputDevices: kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> = getOutputDevicesFlow()
     val inputDevices: kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> = getInputDevicesFlow()
+
+    fun getOptimalFramesPerBuffer(): Int = getOptimalFramesPerBufferPlatform()
+    fun getOptimalSampleRate(): Int = getOptimalSampleRatePlatform()
 }
 
 /**

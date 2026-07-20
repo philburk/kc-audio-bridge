@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.softsynth.audiobridge.AudioDeviceManager
 import com.softsynth.audiobridge.AudioInputBridge
 import com.softsynth.audiobridge.AudioOutputBridge
 import com.softsynth.audiobridge.AudioPermissionState
@@ -73,6 +74,7 @@ fun FullDuplexDemo(
     var activeInputDeviceName by remember { mutableStateOf("None") }
     var activeOutputDeviceName by remember { mutableStateOf("None") }
     var averageInputLevel by remember { mutableStateOf(0.0f) }
+    var lastFramesReadPreparing by remember { mutableStateOf(0) }
 
     var duplexJob by remember { mutableStateOf<Job?>(null) }
 
@@ -108,11 +110,18 @@ fun FullDuplexDemo(
             averageInputLevel = 0.0f
             onStateChanged(true)
 
+            val optimalSampleRate = AudioDeviceManager.getOptimalSampleRate()
+            val optimalFramesPerBuffer = AudioDeviceManager.getOptimalFramesPerBuffer()
+
             val inputBridge = AudioInputBridge.create {
+                sampleRate = optimalSampleRate
+                framesPerBuffer = optimalFramesPerBuffer
                 channels = 1
                 deviceId = selectedInputId
             }
             val outputBridge = AudioOutputBridge.create {
+                sampleRate = optimalSampleRate
+                framesPerBuffer = optimalFramesPerBuffer
                 deviceId = selectedOutputId
             }
 
@@ -175,6 +184,7 @@ fun FullDuplexDemo(
                             }
 
                             framesReadCount += totalReadThisLoop
+                            lastFramesReadPreparing = totalReadThisLoop
 
                             // Calculate input level for level monitor
                             var sum = 0.0f
@@ -186,15 +196,18 @@ fun FullDuplexDemo(
                             // Discard input and write silence to output
                             tempOutputBuffer.fill(0.0f)
                             
-                            // Check if the input rate matches or falls below the output burst size
-                            if (totalReadThisLoop <= burstSize) {
+                            // Check if the input rate matches or falls below the output burst size (with 25% tolerance for OS jitter)
+                            val limit = burstSize * 5 / 4
+                            if (totalReadThisLoop <= limit) {
                                 stableLoopsConsecutive++
                                 preparingLoopsCount = stableLoopsConsecutive
+                                println("Duplex preparing: read $totalReadThisLoop <= limit $limit. Stable loops: $stableLoopsConsecutive / $STABLE_LOOPS_REQUIRED")
                                 if (stableLoopsConsecutive >= STABLE_LOOPS_REQUIRED) {
                                     duplexMode = DuplexMode.STABLE
                                     println("Duplex transitioned to STABLE mode.")
                                 }
                             } else {
+                                println("Duplex preparing backlog draining: read $totalReadThisLoop > limit $limit. Resetting stable loops count.")
                                 stableLoopsConsecutive = 0
                                 preparingLoopsCount = 0
                             }
@@ -283,6 +296,7 @@ fun FullDuplexDemo(
             when (duplexMode) {
                 DuplexMode.PREPARING -> {
                     Text("Status: Preparing... ($preparingLoopsCount / 8 stable loops)")
+                    Text("Last Frames Read (Preparing): $lastFramesReadPreparing")
                 }
                 DuplexMode.STABLE -> {
                     Text("Status: Stable")

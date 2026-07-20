@@ -65,6 +65,12 @@ fun App() {
             "Device Routing Configurations:",
             style = androidx.compose.ui.text.TextStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         )
+        val optimalSampleRate = remember { AudioDeviceManager.getOptimalSampleRate() }
+        val optimalFramesPerBuffer = remember { AudioDeviceManager.getOptimalFramesPerBuffer() }
+        Text(
+            "Optimal Hardware Defaults: Rate = $optimalSampleRate Hz, Buffer = $optimalFramesPerBuffer frames",
+            style = androidx.compose.ui.text.TextStyle(color = androidx.compose.ui.graphics.Color.Gray)
+        )
         
         Row {
             Column {

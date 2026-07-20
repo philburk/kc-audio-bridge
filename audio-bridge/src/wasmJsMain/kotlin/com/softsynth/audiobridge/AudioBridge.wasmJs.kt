@@ -244,3 +244,14 @@ internal class WasmAudioInputBridge(private val config: AudioConfig) : AudioInpu
     }
 }
 
+@JsFun("() => { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const rate = ctx.sampleRate; ctx.close(); return rate; } catch (e) { return 48000; } }")
+external fun getWasmOptimalSampleRate(): Int
+
+internal actual fun getOptimalFramesPerBufferPlatform(): Int {
+    return 128
+}
+
+internal actual fun getOptimalSampleRatePlatform(): Int {
+    return getWasmOptimalSampleRate()
+}
+

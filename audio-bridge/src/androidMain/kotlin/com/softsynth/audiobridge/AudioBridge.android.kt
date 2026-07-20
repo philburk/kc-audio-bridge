@@ -213,7 +213,7 @@ internal class AudioRecordInputBridge(private val config: AudioConfig) : AudioIn
             buffer,
             offsetFrames * mChannelCount,
             numSamplesToRead,
-            AudioRecord.READ_BLOCKING
+            AudioRecord.READ_NON_BLOCKING
         )
 
         return if (readResult < 0) {
@@ -409,5 +409,20 @@ internal actual fun getOutputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<Au
 
 internal actual fun getInputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> {
     return getAndroidDevicesFlow(isInput = true)
+}
+
+internal actual fun getOptimalFramesPerBufferPlatform(): Int {
+    val context = AudioBridgeAndroid.applicationContext ?: return 256
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    val frames = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER)
+    val optimal = frames?.toIntOrNull() ?: 256
+    return if (optimal >= 256) optimal else 256
+}
+
+internal actual fun getOptimalSampleRatePlatform(): Int {
+    val context = AudioBridgeAndroid.applicationContext ?: return 48000
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    val rate = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)
+    return rate?.toIntOrNull() ?: 48000
 }
 

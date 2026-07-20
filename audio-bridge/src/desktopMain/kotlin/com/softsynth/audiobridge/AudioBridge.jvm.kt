@@ -103,9 +103,10 @@ internal class JavaSoundOutputBridge(private val config: AudioConfig) : AudioOut
         val endSample: Int = (offsetFrames + framesToWrite) * mChannelCount
         var byteIndex = 0
         for (sampleIndex in startSample until endSample) {
-            val sample = (buffer[sampleIndex] * 32767.0).toInt().toShort()
-            byteBuffer[byteIndex++] = sample.toByte()
-            byteBuffer[byteIndex++] = (sample.toInt() shr 8).toByte()
+            val sample = (buffer[sampleIndex] * 32768.0).toInt()
+            val clippedSample = sample.coerceIn(-32768, 32767)
+            byteBuffer[byteIndex++] = clippedSample.toByte()
+            byteBuffer[byteIndex++] = (clippedSample shr 8).toByte()
         }
         val bytesWritten = mLine!!.write(byteBuffer, 0, byteIndex)
         return bytesWritten / (mChannelCount * 2)
@@ -220,8 +221,14 @@ internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInpu
         if (!line.isOpen) {
             return -1
         }
-        var framesToRead = numFrames
-        var numSamplesToProcess = numFrames * mChannelCount
+        val bytesPerFrame = mChannelCount * 2
+        val availableBytes = line.available()
+        val availableFrames = availableBytes / bytesPerFrame
+        var framesToRead = minOf(numFrames, availableFrames)
+        if (framesToRead <= 0) {
+            return 0
+        }
+        var numSamplesToProcess = framesToRead * mChannelCount
 
         val byteBuffer = mByteBuffer ?: return -1
         if (numSamplesToProcess * 2 > byteBuffer.size) {
@@ -361,4 +368,12 @@ private fun getDefaultDeviceNameMac(isInput: Boolean): String? {
     } catch (e: Exception) {
         null
     }
+}
+
+internal actual fun getOptimalFramesPerBufferPlatform(): Int {
+    return 512
+}
+
+internal actual fun getOptimalSampleRatePlatform(): Int {
+    return 48000
 }
