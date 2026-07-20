@@ -58,6 +58,7 @@ fun RecordPlayDemo(
     var isRecording by remember { mutableStateOf(false) }
     var isPlayingRecording by remember { mutableStateOf(false) }
     var framesRecorded by remember { mutableStateOf(0) }
+    var framesPlayed by remember { mutableStateOf(0) }
     var averageInputLevel by remember { mutableStateOf(0.0f) }
     var hasRecordingData by remember { mutableStateOf(false) }
     var permissionStatusMessage by remember { mutableStateOf("") }
@@ -101,6 +102,7 @@ fun RecordPlayDemo(
             stopAll()
             isRecording = true
             framesRecorded = 0
+            framesPlayed = 0
             averageInputLevel = 0.0f
             hasRecordingData = false
             onStateChanged(true)
@@ -186,6 +188,7 @@ fun RecordPlayDemo(
 
             stopAll()
             isPlayingRecording = true
+            framesPlayed = 0
             onStateChanged(true)
 
             val playbackData = recordedAudioData ?: return@launch
@@ -233,6 +236,7 @@ fun RecordPlayDemo(
                             continue
                         }
                         playOffset += written
+                        framesPlayed = playOffset
                     }
                 } finally {
                     bridge.stop()
@@ -295,6 +299,7 @@ fun RecordPlayDemo(
             }
 
             Text("Frames Recorded: $framesRecorded")
+            Text("Frames Played: $framesPlayed")
             val roundedLevel = ((averageInputLevel * 1000).toInt() / 1000.0f)
             Text("Average Input Level: $roundedLevel")
             if (permissionStatusMessage.isNotEmpty()) {
