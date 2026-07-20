@@ -80,6 +80,10 @@ internal class WasmAudioOutputBridge(private val config: AudioConfig) : AudioOut
     override fun close() {
         stopWebAudio()
     }
+
+    override fun getCurrentDeviceName(): String {
+        return "Default Output"
+    }
 }
 
 internal actual fun instantiateAudioInputBridge(config: AudioConfig): AudioInputBridge {
@@ -96,6 +100,14 @@ internal actual fun getAudioPermissionState(context: Any?): AudioPermissionState
 
 internal actual suspend fun requestAudioPermission(context: Any?): AudioPermissionState {
     return AudioPermissionState.UNDETERMINED
+}
+
+internal actual fun getOutputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> {
+    return kotlinx.coroutines.flow.flowOf(emptyList())
+}
+
+internal actual fun getInputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> {
+    return kotlinx.coroutines.flow.flowOf(emptyList())
 }
 
 internal class StubAudioInputBridge(private val config: AudioConfig) : AudioInputBridge {
@@ -123,6 +135,10 @@ internal class StubAudioInputBridge(private val config: AudioConfig) : AudioInpu
 
     override fun getSampleRate(): Int {
         return config.sampleRate
+    }
+
+    override fun getCurrentDeviceName(): String {
+        return "Default Input"
     }
 
     override fun read(buffer: FloatArray, offsetFrames: Int, numFrames: Int): Int {

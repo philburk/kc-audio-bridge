@@ -33,11 +33,17 @@ import com.softsynth.audiobridge.AudioPermissionState
 import com.softsynth.audiobridge.AudioResult
 import com.softsynth.audiobridge.writeSuspending
 import com.softsynth.audiobridge.readSuspending
+import com.softsynth.audiobridge.AudioDeviceManager
+import com.softsynth.audiobridge.AudioDeviceInfo
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -50,10 +56,7 @@ import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
 
-val audioBridge = AudioOutputBridge.create()
-val audioInputBridge = AudioInputBridge.create {
-    channels = 1
-}
+private var audioBridge: AudioOutputBridge? = null
 
 class SineWaveGenerator(private var frequency: Float,
                         private val amplitude: Float = 1.0f) {
@@ -104,7 +107,8 @@ fun startAudioStreamJob(): Job { // Return the Job
         val leftSine = SineWaveGenerator(BASE_FREQUENCY.toFloat())
         val rightSine = SineWaveGenerator((BASE_FREQUENCY * 5.0 / 4.0).toFloat())
 
-        val framesPerBurst = audioBridge.getFramesPerBurst()
+        val bridge = audioBridge ?: return@launch
+        val framesPerBurst = bridge.getFramesPerBurst()
         println("AudioBridge framesPerBurst: $framesPerBurst")
         // Don't make the buffer too large because the note timing will be too grainy.
         val bufferSizeFrames = min(framesPerBurst, MAX_FRAMES_PER_BUFFER)
@@ -112,7 +116,7 @@ fun startAudioStreamJob(): Job { // Return the Job
         val rightBuffer = FloatArray(bufferSizeFrames)
         val stereoBuffer = FloatArray(bufferSizeFrames * STEREO_CHANNELS)
 
-        val sampleRate = audioBridge.getSampleRate()
+        val sampleRate = bridge.getSampleRate()
         println("AudioBridge sample rate: $sampleRate")
         leftSine.setSampleRate(sampleRate)
         rightSine.setSampleRate(sampleRate)
@@ -129,7 +133,8 @@ fun startAudioStreamJob(): Job { // Return the Job
                 }
 
                 // Write the interleaved buffer, waiting up to 1000ms if needed.
-                val framesWritten = audioBridge.writeSuspending(
+                val bridge = audioBridge ?: return@launch
+                val framesWritten = bridge.writeSuspending(
                     stereoBuffer,
                     0,
                     bufferSizeFrames,
@@ -166,23 +171,27 @@ fun stopAudioStreamJob() {
     println("Requested to stop audio stream job.")
 }
 
-fun startAudioDemo(): AudioResult {
-    // Open and start the audio bridge
-    // It's important that open() is called before start() and write()
-    val openResult = audioBridge.open()
+fun startAudioDemo(selectedDeviceId: Int, onStarted: (String) -> Unit): AudioResult {
+    stopAudioDemo()
+    val bridge = AudioOutputBridge.create {
+        deviceId = selectedDeviceId
+    }
+    audioBridge = bridge
+    val openResult = bridge.open()
     if (openResult != AudioResult.OK) {
         println("Failed to open audio bridge: $openResult")
-        // Handle error, maybe show a message to the user
+        audioBridge = null
         return openResult
     }
-    val startResult = audioBridge.start()
-    if (openResult != AudioResult.OK) {
+    val startResult = bridge.start()
+    if (startResult != AudioResult.OK) {
         println("Failed to start audio bridge: $startResult")
-        audioBridge.close() // Clean up if start fails
-        return openResult
+        bridge.close()
+        audioBridge = null
+        return startResult
     }
+    onStarted(bridge.getCurrentDeviceName())
     println("AudioBridge opened and started.")
-    // Start the audio stream job
     startAudioStreamJob()
     println("Continuous tone started.")
     return AudioResult.OK
@@ -190,9 +199,9 @@ fun startAudioDemo(): AudioResult {
 
 fun stopAudioDemo() {
     stopAudioStreamJob()
-    // Stop and close the audio bridge
-    audioBridge.stop()
-    audioBridge.close()
+    audioBridge?.stop()
+    audioBridge?.close()
+    audioBridge = null
     println("AudioBridge stopped and closed.")
 }
 
@@ -216,16 +225,110 @@ fun App() {
     var hasRecordingData by remember { mutableStateOf(false) }
     var permissionStatusMessage by remember { mutableStateOf("") }
 
+    // Dynamic Device routing states
+    val outputDevices by AudioDeviceManager.outputDevices.collectAsState(initial = emptyList())
+    val inputDevices by AudioDeviceManager.inputDevices.collectAsState(initial = emptyList())
+    var selectedOutputId by remember { mutableStateOf(-1) }
+    var selectedInputId by remember { mutableStateOf(-1) }
+
+    var outputMenuExpanded by remember { mutableStateOf(false) }
+    var inputMenuExpanded by remember { mutableStateOf(false) }
+
+    // Active opened device names
+    var activeOutputDeviceName by remember { mutableStateOf("None") }
+    var activeInputDeviceName by remember { mutableStateOf("None") }
+
     Column {
         Text("Test AudioBridge on platform ${getPlatform().name}")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Device Selection Section
+        Text("Device Routing Configurations:", style = androidx.compose.ui.text.TextStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+        
+        Row {
+            Column {
+                Text("Output Device:")
+                Box {
+                    Button(
+                        onClick = { outputMenuExpanded = true },
+                        enabled = !isPlaying && !isRecording && !isPlayingRecording
+                    ) {
+                        val selectedName = if (selectedOutputId == -1) "Default Output Device" else outputDevices.find { it.id == selectedOutputId }?.name ?: "Unknown Device"
+                        Text(selectedName)
+                    }
+                    DropdownMenu(
+                        expanded = outputMenuExpanded,
+                        onDismissRequest = { outputMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Default Output Device") },
+                            onClick = {
+                                selectedOutputId = -1
+                                outputMenuExpanded = false
+                            }
+                        )
+                        outputDevices.forEach { device ->
+                            DropdownMenuItem(
+                                text = { Text(device.name) },
+                                onClick = {
+                                    selectedOutputId = device.id
+                                    outputMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (audioInputSupported) {
+                Column {
+                    Text("Input Device:")
+                    Box {
+                        Button(
+                            onClick = { inputMenuExpanded = true },
+                            enabled = !isPlaying && !isRecording && !isPlayingRecording
+                        ) {
+                            val selectedName = if (selectedInputId == -1) "Default Input Device" else inputDevices.find { it.id == selectedInputId }?.name ?: "Unknown Device"
+                            Text(selectedName)
+                        }
+                        DropdownMenu(
+                            expanded = inputMenuExpanded,
+                            onDismissRequest = { inputMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Default Input Device") },
+                                onClick = {
+                                    selectedInputId = -1
+                                    inputMenuExpanded = false
+                                }
+                            )
+                            inputDevices.forEach { device ->
+                                DropdownMenuItem(
+                                    text = { Text(device.name) },
+                                    onClick = {
+                                        selectedInputId = device.id
+                                        inputMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text("Audio Output (Sine Wave Demo)", style = androidx.compose.ui.text.TextStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
         Row {
             Button(
                 onClick = {
-                    val result = startAudioDemo()
+                    val result = startAudioDemo(selectedOutputId) { deviceName ->
+                        activeOutputDeviceName = deviceName
+                    }
                     if (result != AudioResult.OK) {
                         println("Failed to open audio bridge: $result")
                         return@Button
@@ -241,11 +344,16 @@ fun App() {
                 onClick = {
                     stopAudioDemo()
                     isPlaying = false
+                    activeOutputDeviceName = "None"
                 },
                 enabled = isPlaying
             ) {
                 Text("STOP")
             }
+        }
+        
+        if (isPlaying) {
+            Text("Active Output Device: $activeOutputDeviceName")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -284,23 +392,30 @@ fun App() {
                             averageInputLevel = 0.0f
                             hasRecordingData = false
 
+                            val inputBridge = AudioInputBridge.create {
+                                channels = 1
+                                deviceId = selectedInputId
+                            }
+
                             recordingJob = launch(Dispatchers.Default) {
-                                val openResult = audioInputBridge.open()
+                                val openResult = inputBridge.open()
                                 if (openResult != AudioResult.OK) {
                                     println("Failed to open audio input: $openResult")
                                     isRecording = false
                                     return@launch
                                 }
-                                val startResult = audioInputBridge.start()
+                                val startResult = inputBridge.start()
                                 if (startResult != AudioResult.OK) {
                                     println("Failed to start audio input: $startResult")
-                                    audioInputBridge.close()
+                                    inputBridge.close()
                                     isRecording = false
                                     return@launch
                                 }
 
-                                val sampleRate = audioInputBridge.getSampleRate()
-                                val burstSize = audioInputBridge.getFramesPerBurst()
+                                activeInputDeviceName = inputBridge.getCurrentDeviceName()
+
+                                val sampleRate = inputBridge.getSampleRate()
+                                val burstSize = inputBridge.getFramesPerBurst()
                                 val maxFrames = sampleRate * 10
                                 val buffer = FloatArray(maxFrames)
                                 recordedAudioData = buffer
@@ -311,7 +426,7 @@ fun App() {
                                 try {
                                     while (totalRecordedFrames < maxFrames && isActive) {
                                         val framesToRead = min(burstSize, maxFrames - totalRecordedFrames)
-                                        val read = audioInputBridge.readSuspending(tempBuffer, 0, framesToRead, timeoutMillis = 1000L)
+                                        val read = inputBridge.readSuspending(tempBuffer, 0, framesToRead, timeoutMillis = 1000L)
                                         if (read < 0) {
                                             println("AudioInputBridge read error: $read")
                                             break
@@ -338,9 +453,10 @@ fun App() {
                                         averageInputLevel = avg
                                     }
                                 } finally {
-                                    audioInputBridge.stop()
-                                    audioInputBridge.close()
+                                    inputBridge.stop()
+                                    inputBridge.close()
                                     isRecording = false
+                                    activeInputDeviceName = "None"
                                     if (totalRecordedFrames > 0) {
                                         hasRecordingData = true
                                     }
@@ -385,21 +501,25 @@ fun App() {
                             isPlayingRecording = true
 
                             playbackJob = launch(Dispatchers.Default) {
-                                val openResult = audioBridge.open()
+                                val bridge = AudioOutputBridge.create {
+                                    deviceId = selectedOutputId
+                                }
+                                val openResult = bridge.open()
                                 if (openResult != AudioResult.OK) {
                                     println("Failed to open audio output: $openResult")
                                     isPlayingRecording = false
                                     return@launch
                                 }
-                                val startResult = audioBridge.start()
+                                val startResult = bridge.start()
                                 if (startResult != AudioResult.OK) {
                                     println("Failed to start audio output: $startResult")
-                                    audioBridge.close()
+                                    bridge.close()
                                     isPlayingRecording = false
                                     return@launch
                                 }
 
-                                val burstSize = audioBridge.getFramesPerBurst()
+                                activeOutputDeviceName = bridge.getCurrentDeviceName()
+                                val burstSize = bridge.getFramesPerBurst()
                                 val data = recordedAudioData ?: return@launch
                                 val totalFrames = totalRecordedFrames
                                 var playOffset = 0
@@ -413,7 +533,7 @@ fun App() {
                                             tempBuffer[i * 2] = sample
                                             tempBuffer[i * 2 + 1] = sample
                                         }
-                                        val written = audioBridge.writeSuspending(tempBuffer, 0, framesToWrite, timeoutMillis = 1000L)
+                                        val written = bridge.writeSuspending(tempBuffer, 0, framesToWrite, timeoutMillis = 1000L)
                                         if (written < 0) {
                                             println("AudioBridge write error: $written")
                                             break
@@ -424,9 +544,10 @@ fun App() {
                                         playOffset += written
                                     }
                                 } finally {
-                                    audioBridge.stop()
-                                    audioBridge.close()
+                                    bridge.stop()
+                                    bridge.close()
                                     isPlayingRecording = false
+                                    activeOutputDeviceName = "None"
                                 }
                             }
                         }
@@ -440,9 +561,9 @@ fun App() {
             Spacer(modifier = Modifier.height(8.dp))
 
             if (isRecording) {
-                Text("Status: Recording...")
+                Text("Status: Recording on active device $activeInputDeviceName")
             } else if (isPlayingRecording) {
-                Text("Status: Playing recording...")
+                Text("Status: Playing recording on active device $activeOutputDeviceName")
             } else {
                 Text("Status: Idle")
             }
@@ -458,14 +579,12 @@ fun App() {
 
     DisposableEffect(Unit) {
         onDispose {
-            println("App Composable disposing. Stopping jobs and closing audio bridges.")
+            println("App Composable disposing. Stopping jobs and closing active audio bridges.")
             stopAudioStreamJob()
             recordingJob?.cancel()
             playbackJob?.cancel()
-            audioBridge.stop()
-            audioBridge.close()
-            audioInputBridge.stop()
-            audioInputBridge.close()
+            audioBridge?.stop()
+            audioBridge?.close()
         }
     }
 }

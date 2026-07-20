@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        com.softsynth.audiobridge.AudioBridgeAndroid.applicationContext = applicationContext
 
         setContent {
             // Apply padding that respects all system UI elements

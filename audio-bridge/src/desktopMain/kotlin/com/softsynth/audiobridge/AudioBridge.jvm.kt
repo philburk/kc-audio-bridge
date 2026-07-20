@@ -22,6 +22,10 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.LineUnavailableException
 import javax.sound.sampled.SourceDataLine
 import javax.sound.sampled.TargetDataLine
+import javax.sound.sampled.Mixer
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 internal actual fun instantiateAudioOutputBridge(config: AudioConfig): AudioOutputBridge {
     return JavaSoundOutputBridge(config)
@@ -35,6 +39,7 @@ internal class JavaSoundOutputBridge(private val config: AudioConfig) : AudioOut
     private var mFormat: AudioFormat? = null
     private var mByteBuffer: ByteArray? = null
     private val mAudioFramesPerJavaBuffer = 1024
+    private var mDeviceName = "Default Output"
 
     override fun open(): AudioResult {
         val bytesPerFrame = mChannelCount * 2 // 16 bit
@@ -46,12 +51,15 @@ internal class JavaSoundOutputBridge(private val config: AudioConfig) : AudioOut
             mChannelCount, true, false
         )
         val info = DataLine.Info(SourceDataLine::class.java, mFormat)
-        if (!AudioSystem.isLineSupported(info)) {
-            println("Line not supported $info")
-            return AudioResult.ERROR_INVALID_FORMAT
-        }
+        val mixer = getMixerForDevice(config.deviceId, SourceDataLine::class.java)
         return try {
-            mLine = AudioSystem.getLine(info) as SourceDataLine
+            mLine = if (mixer != null) {
+                mDeviceName = mixer.mixerInfo.name
+                mixer.getLine(info) as SourceDataLine
+            } else {
+                mDeviceName = "Default Output"
+                AudioSystem.getLine(info) as SourceDataLine
+            }
             mLine!!.open(mFormat, bufferSize)
             AudioResult.OK
         } catch (e: LineUnavailableException) {
@@ -120,6 +128,10 @@ internal class JavaSoundOutputBridge(private val config: AudioConfig) : AudioOut
     override fun getFramesPerBurst(): Int {
         return config.framesPerBuffer
     }
+
+    override fun getCurrentDeviceName(): String {
+        return mDeviceName
+    }
 }
 
 internal actual fun instantiateAudioInputBridge(config: AudioConfig): AudioInputBridge {
@@ -138,6 +150,14 @@ internal actual suspend fun requestAudioPermission(context: Any?): AudioPermissi
     return AudioPermissionState.GRANTED
 }
 
+internal actual fun getOutputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> {
+    return getJavaSoundDevicesFlow(isInput = false)
+}
+
+internal actual fun getInputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> {
+    return getJavaSoundDevicesFlow(isInput = true)
+}
+
 internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInputBridge {
 
     private var mLine: TargetDataLine? = null
@@ -146,6 +166,7 @@ internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInpu
     private var mFormat: AudioFormat? = null
     private var mByteBuffer: ByteArray? = null
     private val mAudioFramesPerJavaBuffer = 1024
+    private var mDeviceName = "Default Input"
 
     override fun open(): AudioResult {
         val bytesPerFrame = mChannelCount * 2 // 16 bit
@@ -157,12 +178,15 @@ internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInpu
             mChannelCount, true, false
         )
         val info = DataLine.Info(TargetDataLine::class.java, mFormat)
-        if (!AudioSystem.isLineSupported(info)) {
-            println("TargetDataLine not supported $info")
-            return AudioResult.ERROR_INVALID_FORMAT
-        }
+        val mixer = getMixerForDevice(config.deviceId, TargetDataLine::class.java)
         return try {
-            mLine = AudioSystem.getLine(info) as TargetDataLine
+            mLine = if (mixer != null) {
+                mDeviceName = mixer.mixerInfo.name
+                mixer.getLine(info) as TargetDataLine
+            } else {
+                mDeviceName = "Default Input"
+                AudioSystem.getLine(info) as TargetDataLine
+            }
             mLine!!.open(mFormat, bufferSize)
             AudioResult.OK
         } catch (e: LineUnavailableException) {
@@ -233,5 +257,67 @@ internal class JavaSoundInputBridge(private val config: AudioConfig) : AudioInpu
 
     override fun getFramesPerBurst(): Int {
         return config.framesPerBuffer
+    }
+
+    override fun getCurrentDeviceName(): String {
+        return mDeviceName
+    }
+}
+
+private fun getMixerForDevice(deviceId: Int, lineClass: Class<*>): Mixer? {
+    if (deviceId == -1) {
+        return null
+    }
+    val mixers = AudioSystem.getMixerInfo()
+    for (info in mixers) {
+        val hash = (info.name + info.vendor + info.description).hashCode()
+        if (hash == deviceId) {
+            val mixer = AudioSystem.getMixer(info)
+            if (mixer.isLineSupported(DataLine.Info(lineClass, null))) {
+                return mixer
+            }
+        }
+    }
+    return null
+}
+
+private fun getJavaSoundDevices(isInput: Boolean): List<AudioDeviceInfo> {
+    val mixers = AudioSystem.getMixerInfo()
+    val lineClass = if (isInput) TargetDataLine::class.java else SourceDataLine::class.java
+    val list = mutableListOf<AudioDeviceInfo>()
+    for (info in mixers) {
+        if (info.name == "Default Audio Device" || info.name == "Port Default Audio Device") {
+            continue
+        }
+        val mixer = try {
+            AudioSystem.getMixer(info)
+        } catch (e: Exception) {
+            continue
+        }
+        val lineInfo = DataLine.Info(lineClass, null)
+        if (mixer.isLineSupported(lineInfo)) {
+            val hash = (info.name + info.vendor + info.description).hashCode()
+            list.add(
+                AudioDeviceInfo(
+                    id = hash,
+                    name = info.name.takeIf { it.isNotEmpty() } ?: "Mixer ${hash}",
+                    maxChannels = 2,
+                    isDefault = false
+                )
+            )
+        }
+    }
+    return list
+}
+
+private fun getJavaSoundDevicesFlow(isInput: Boolean): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> = kotlinx.coroutines.flow.flow {
+    var previous = emptyList<AudioDeviceInfo>()
+    while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+        val current = getJavaSoundDevices(isInput)
+        if (current != previous) {
+            previous = current
+            emit(current)
+        }
+        delay(2000)
     }
 }

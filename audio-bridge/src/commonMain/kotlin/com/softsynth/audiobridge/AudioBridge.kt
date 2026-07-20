@@ -36,18 +36,27 @@ enum class AudioPermissionState {
     NOT_SUPPORTED
 }
 
+data class AudioDeviceInfo(
+    val id: Int,
+    val name: String,
+    val maxChannels: Int,
+    val isDefault: Boolean
+)
+
 class AudioConfig internal constructor(
     val sampleRate: Int,
     val channels: Int,
-    val framesPerBuffer: Int
+    val framesPerBuffer: Int,
+    val deviceId: Int
 ) {
     class Builder {
         var sampleRate: Int = 44100
         var channels: Int = 2
         var framesPerBuffer: Int = 256
+        var deviceId: Int = -1
 
         internal fun build(): AudioConfig {
-            return AudioConfig(sampleRate, channels, framesPerBuffer)
+            return AudioConfig(sampleRate, channels, framesPerBuffer, deviceId)
         }
     }
 }
@@ -82,6 +91,12 @@ interface AudioBridge {
      * This is valid after calling open().
      */
     fun getSampleRate(): Int
+
+    /**
+     * Get the name of the device currently in use by this stream.
+     * This is valid after calling open().
+     */
+    fun getCurrentDeviceName(): String
 }
 
 interface AudioOutputBridge : AudioBridge {
@@ -162,6 +177,13 @@ internal expect fun instantiateAudioInputBridge(config: AudioConfig): AudioInput
 internal expect fun isAudioInputSupported(): Boolean
 internal expect fun getAudioPermissionState(context: Any?): AudioPermissionState
 internal expect suspend fun requestAudioPermission(context: Any?): AudioPermissionState
+internal expect fun getOutputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>>
+internal expect fun getInputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>>
+
+object AudioDeviceManager {
+    val outputDevices: kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> = getOutputDevicesFlow()
+    val inputDevices: kotlinx.coroutines.flow.Flow<List<AudioDeviceInfo>> = getInputDevicesFlow()
+}
 
 /**
  * Suspending extension function for AudioOutputBridge.write().
