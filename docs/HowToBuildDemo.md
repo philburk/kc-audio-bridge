@@ -5,7 +5,7 @@
 Kotlin Multiplatform development is supported by Android Studio.
 This is a free and full featured IDE.
 It can be used for Android but also for desktop, iOS or web development.
-You do not need an Android device for development. Android Studio include an Android emulator.
+You do not need an Android device for development. Android Studio includes an Android emulator.
 Android Studio also includes an advanced coding AI assistant called Gemini.
 
 ## Setting up the IDE

@@ -3,12 +3,41 @@
 # How to Add AudioBridge to Another Project
 
 There are two main ways to use the `audio-bridge` library in another project:
-1.  **Distributable Library**: Build the library locally and add it as a dependency.
-2.  **Git Submodule**: Include the source code directly in your project.
+1. **Public Dependency**: Build your code using a dependency from MavenCentral
+1.  **Local Dependency Library**: Build the library locally and publish it to your local Maven repo.
 
-## Method 1: Distributable Library (Maven Local)
+If you are testing on WASM, you will also need to copy some JavaScript files using gradle,
+and set some browser headers.
 
-This method involves building the library and publishing it to your local Maven repository (`~/.m2/repository`). This is useful if you want to reuse the compiled library across multiple projects on your machine.
+## Method 1: Public Dependency on Maven Central
+
+This method involves downloading the code from the central Maven repository.
+This is the recommended method for most developers.
+
+### 1. Add mavenCentral
+In your consumer project's root `build.gradle.kts` (or module level), make sure `mavenCentral()' is listed as a repository:
+```kotlin
+repositories {
+    mavenCentral()
+    google()
+}
+```
+
+### 2. Add Dependency
+Then add the dependency to your source sets (e.g., `commonMain`):
+```kotlin
+commonMain.dependencies {
+    implementation("com.softsynth:audio-bridge:0.3.0")
+}
+```
+
+Look on [GitHub](https://github.com/philburk/kc-audio-bridge/releases) to find the latest release version.
+
+## Method 2: Private Dependency on Maven Local
+
+This method involves building the library and publishing it to your local Maven repository (`~/.m2/repository`).
+This is useful if you want to use the latest unreleased version of kc-audio-bridge, or if
+you want to modify kc-audio-bridge.
 
 ### 1. Build and Publish
 Download the kc-audio-bridge repository from GitHub to your local machine.
@@ -18,7 +47,7 @@ Then run the following command in the `kc-audio-bridge` root directory:
 ```
 This will publish the artifacts (Android AAR, Desktop JAR, WasmJS Klib, etc.) to your local Maven cache with the group `com.softsynth` for the latest AudioBridge version.
 
-### 2. Add Dependency
+### 2. Add mavenLocal
 In your consumer project's `settings.gradle.kts`, ensure you are not including the module directly.
 
 In your consumer project's root `build.gradle.kts` (or module level), add `mavenLocal()` to your repositories:
@@ -30,13 +59,15 @@ repositories {
 }
 ```
 
-Then add the dependency to your source sets (e.g., `commonMain`):
+### 3. Add Dependency
+Then add the dependency to your application's source sets (e.g., `commonMain`):
 ```kotlin
 commonMain.dependencies {
     implementation("com.softsynth:audio-bridge:0.3.0")
 }
 ```
-### 3. Copy JavaScript resources for local Web testing
+
+# 2. Copy JavaScript resources for local Web testing
 
 ## WasmJS Specifics
 
@@ -75,7 +106,7 @@ tasks.named("wasmJsProcessResources") {
 }
 ```
 
-### Allow Cross-Origin
+## Allow Cross-Origin
 
 The WebAudio implementation of the AudioBridge uses SharedArrayBuffer. That requires a special permission to allow "Cross-Origin" operation.
 To solve this for local testing, add a folder called webpack.config.d to your webApp folder. It should contain a file called "devServerHeaders.js" which contains:
@@ -94,31 +125,3 @@ if (config.devServer) {
 An example is [here](https://github.com/philburk/kc-audio-bridge/blob/main/composeApp/webpack.config.d/devServerHeaders.js).
 
 ---
-
-## Method 2: Git Submodule (Source Integration)
-
-This method is best if you want to modify `audio-bridge` while working on your app, or if you want to ensure your app always builds with a specific commit of the library.
-
-### 1. Add Submodule
-Add the repository as a submodule to your project:
-```bash
-git submodule add https://github.com/philburk/kc-audio-bridge.git audio-bridge-module
-```
-
-### 2. Configure Gradle
-In your project's `settings.gradle.kts`, include the build:
-```kotlin
-includeBuild("audio-bridge-module")
-```
-
-### 3. Add Dependency
-In your project's `build.gradle.kts`:
-```kotlin
-commonMain.dependencies {
-    // Gradle composite build will automatically substitute this with the included build
-    implementation("com.softsynth:audio-bridge:0.3.0")
-}
-```
-
-See the note about "WasmJS Specifics" in Method #1.
-
