@@ -93,7 +93,16 @@ fun App() {
                         )
                         outputDevices.forEach { device ->
                             DropdownMenuItem(
-                                text = { Text(device.name) },
+                                text = {
+                                    val displayName = buildString {
+                                        append(device.name)
+                                        if (device.isDefault) {
+                                            append(" (default)")
+                                        }
+                                        append(", max=${device.maxChannels}")
+                                    }
+                                    Text(displayName)
+                                },
                                 onClick = {
                                     selectedOutputId = device.id
                                     outputMenuExpanded = false
@@ -134,7 +143,16 @@ fun App() {
                             )
                             inputDevices.forEach { device ->
                                 DropdownMenuItem(
-                                    text = { Text(device.name) },
+                                    text = {
+                                        val displayName = buildString {
+                                            append(device.name)
+                                            if (device.isDefault) {
+                                                append(" (default)")
+                                            }
+                                            append(", max=${device.maxChannels}")
+                                        }
+                                        Text(displayName)
+                                    },
                                     onClick = {
                                         selectedInputId = device.id
                                         inputMenuExpanded = false

@@ -297,6 +297,10 @@ private fun getJavaSoundDevices(isInput: Boolean): List<AudioDeviceInfo> {
     val mixers = AudioSystem.getMixerInfo()
     val lineClass = if (isInput) TargetDataLine::class.java else SourceDataLine::class.java
     val list = mutableListOf<AudioDeviceInfo>()
+
+    val defaultMixer = try { javax.sound.sampled.AudioSystem.getMixer(null) } catch (e: Exception) { null }
+    val defaultMixerName = defaultMixer?.mixerInfo?.name
+
     for (info in mixers) {
         if (info.name == "Default Audio Device" || info.name == "Port Default Audio Device") {
             continue
@@ -309,12 +313,13 @@ private fun getJavaSoundDevices(isInput: Boolean): List<AudioDeviceInfo> {
         val lineInfo = DataLine.Info(lineClass, null)
         if (mixer.isLineSupported(lineInfo)) {
             val hash = (info.name + info.vendor + info.description).hashCode()
+            val isDefaultDevice = (info.name == defaultMixerName)
             list.add(
                 AudioDeviceInfo(
                     id = hash,
                     name = info.name.takeIf { it.isNotEmpty() } ?: "Mixer ${hash}",
                     maxChannels = 2,
-                    isDefault = false
+                    isDefault = isDefaultDevice
                 )
             )
         }

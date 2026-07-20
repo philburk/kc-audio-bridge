@@ -167,7 +167,7 @@ private fun queryWasmDevices(isInput: Boolean): List<AudioDeviceInfo> {
                 id = idHash,
                 name = name.takeIf { it.isNotEmpty() } ?: (if (isInput) "Microphone $i" else "Speaker $i"),
                 maxChannels = 2,
-                isDefault = false
+                isDefault = (idStr == "default")
             )
         )
     }
