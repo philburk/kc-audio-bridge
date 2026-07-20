@@ -80,6 +80,14 @@ internal actual fun getInputDevicesFlow(): kotlinx.coroutines.flow.Flow<List<Aud
     return kotlinx.coroutines.flow.flowOf(emptyList())
 }
 
+internal actual fun getOptimalFramesPerBufferPlatform(): Int {
+    return 256
+}
+
+internal actual fun getOptimalSampleRatePlatform(): Int {
+    return 48000
+}
+
 internal class StubAudioInputBridge(private val config: AudioConfig) : AudioInputBridge {
     override fun open(): AudioResult {
         return AudioResult.OK
