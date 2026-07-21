@@ -96,8 +96,10 @@ fun RecordPlayDemo(
                     permissionStatusMessage = "Permission denied."
                     return@launch
                 }
+                permissionStatusMessage = "Permission now granted."
+            } else {
+                permissionStatusMessage = "Permission already granted."
             }
-            permissionStatusMessage = "Permission granted."
 
             stopAll()
             isRecording = true

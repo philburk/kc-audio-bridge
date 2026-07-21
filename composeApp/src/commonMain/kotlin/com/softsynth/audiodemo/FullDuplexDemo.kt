@@ -99,8 +99,10 @@ fun FullDuplexDemo(
                     permissionStatusMessage = "Permission denied."
                     return@launch
                 }
+                permissionStatusMessage = "Permission now granted."
+            } else {
+                permissionStatusMessage = "Permission already granted."
             }
-            permissionStatusMessage = "Permission granted."
 
             stopDuplex()
             duplexMode = DuplexMode.PREPARING
